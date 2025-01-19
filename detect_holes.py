@@ -123,5 +123,3 @@ def detecet_holes(image, contour_polygon):
     contoured_image, binary, contours = find_and_draw_contours(image, cleaned_mask)
 
     return contours
-
-# # Load an image

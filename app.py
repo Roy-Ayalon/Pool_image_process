@@ -10,8 +10,6 @@ def capture_and_process_frame(cap):
     if not ret:
         print("Failed to capture frame.")
         return None
-    
-    # Detect the pool balls, board, holes, and stick line
 
     _, _, _, balls_contour = detect_pool_balls(frame)
     board_contour = detect_board(frame)
