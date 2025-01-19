@@ -70,7 +70,7 @@ def classify_ball_color(hsv_ball_roi):
         return "white"  # fallback
     return best_color
 
-def detect_pool_balls(image):
+def detect_pool_balls(image, board_contour):
     """
     Detects circles (balls) via HoughCircles, extracts each ball's color,
     and classifies them by standard 8-ball numbering.
@@ -94,10 +94,11 @@ def detect_pool_balls(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     gray = cv2.medianBlur(gray, 5)
 
-    # find only the circles in "mask.png" over the original image
-    table_mask = cv2.imread("mask.png", cv2.IMREAD_GRAYSCALE)
-    gray = cv2.bitwise_and(gray, gray, mask=table_mask)
-
+    # find only the circles in contour over the original image
+    mask = np.zeros_like(gray)
+    cv2.drawContours(mask, [board_contour], -1, 255, -1)
+    gray = cv2.bitwise_and(gray, gray, mask=mask)
+    
     # 3. Hough Circle detection
     #    Adjust these params to fit your image size and ball sizes
     circles = cv2.HoughCircles(
@@ -140,12 +141,12 @@ def detect_pool_balls(image):
             balls_info.append((x, y, r, ball_label, ball_number))
 
             # 8. Draw the circle & label on the annotated image
-            cv2.circle(annotated, (x, y), r, (0, 255, 0), 2)
+            cv2.circle(annotated, (x, y), r, (255, 0, 0), 2)
             cv2.putText(
                 annotated, ball_label,
                 (x - r, y - r - 5),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.6, (0, 255, 0), 2
+                0.6, (255, 0, 0), 2
             )
 
             # add contour of the ball to the list

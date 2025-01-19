@@ -18,11 +18,11 @@ def capture_and_process_frame(cap):
 
     # Draw the detected objects on the frame
     if board_contour is not None:
-        cv2.drawContours(frame, [board_contour], -1, (255, 255, 0), thickness=2)
+        cv2.drawContours(frame, [board_contour], -1, (0, 255, 0), thickness=2)
     if holes_contours:
-        cv2.drawContours(frame, holes_contours, -1, (0, 255, 255), thickness=2)
-    #if balls_contour:
-        #cv2.drawContours(frame, balls_contour, -1, (0, 255, 0), thickness=2)
+        cv2.drawContours(frame, holes_contours, -1, (0, 255, 0), thickness=2)
+    if balls_contour:
+        cv2.drawContours(frame, balls_contour, -1, (0, 0, 255), thickness=2)
     # Assuming detect_stick returns a tuple/list of two points, each being (x, y)
     if line and isinstance(line, (list, tuple)) and len(line) == 2:
         pt1, pt2 = line
