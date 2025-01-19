@@ -160,22 +160,5 @@ def detecet_holes(image, mask_polygon):
     # Find and draw contours on the original image
     contoured_image, binary, contours = find_and_draw_contours(image, cleaned_mask)
 
-    return binary
+    return contours
 
-# Detect holes in the image using the provided mask
-holes_binary_mask = detecet_holes(image, mask_polygon)
-
-# Plot the original image and the detected holes
-plt.figure(figsize=(12, 6))
-
-plt.subplot(1, 2, 1)
-plt.title('Original Image')
-plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-plt.axis('off')
-
-plt.subplot(1, 2, 2)
-plt.title('Detected Holes')
-plt.imshow(holes_binary_mask, cmap='gray')
-plt.axis('off')
-
-plt.show()

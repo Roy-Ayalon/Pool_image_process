@@ -112,6 +112,7 @@ def detect_pool_balls(image_path):
     )
 
     balls_info = []
+    contour_balls = []
 
     if circles is not None and len(circles) > 0:
         # Convert to int32 (avoid uint16 overflow when subtracting)
@@ -146,6 +147,9 @@ def detect_pool_balls(image_path):
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.6, (0, 255, 0), 2
             )
+
+            # add contour of the ball to the list
+            contour_balls.append(cv2.circle(ball_mask, (x, y), r, 255, -1))
     else:
         print("No circles detected by Hough transform.")
 
@@ -153,7 +157,7 @@ def detect_pool_balls(image_path):
     for (x, y, r, label, number) in balls_info:
         cv2.circle(ball_mask, (x, y), r, 255, -1)
 
-    return annotated, balls_info, ball_mask
+    return annotated, balls_info, ball_mask, contour_balls
 
 # -------------------------------------------------------------------------
 #  Main script usage
