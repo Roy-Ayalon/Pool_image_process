@@ -13,7 +13,7 @@ COLOR_TO_BALL = {
     "green": 6,
     "brown": 7,  # Some sets call it maroon or brown
     "black": 8,           # 8-ball
-    "yellow": 9,
+    "yellow": 9, 
     "blue": 10,
     "red": 11,
     "purple": 12,
