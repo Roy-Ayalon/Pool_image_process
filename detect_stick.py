@@ -14,25 +14,8 @@ def detect_stick(image, mask):
         image = image + image_proc
         image_rgb = image.astype(float) / 255.0
         K = 1 - np.max(image_rgb, axis=2)
-        K = (K * 255).astype(np.uint8)  # Scale K back to 0-255 range
-        # Display the binary_k image using Matplotlib
-        # Display the K channel image
-        plt.figure(figsize=(10, 5))
-        plt.subplot(1, 2, 1)  # Subplot for the image
-        plt.imshow(K, cmap='gray')  # Use cmap='gray' for grayscale images
-        plt.title("K Channel")  # Title for the image
-        plt.axis('off')  # Turn off axes
-
-        # Display the histogram
-        plt.subplot(1, 2, 2)  # Subplot for the histogram
-        plt.hist(K.ravel(), bins=256, range=(0, 255), color='blue', alpha=0.7)  # Histogram
-        plt.title("Histogram of K Channel")
-        plt.xlabel("Pixel Value")
-        plt.ylabel("Frequency")
-
-        # Show the combined plots
-        plt.tight_layout()
-        plt.show()
+        K = (K * 255).astype(np.uint8)  # Scale K back to 0-255 ranges
+ 
         return K
 
     def binarize_k_channel(k_channel, threshold=127):
@@ -40,11 +23,6 @@ def detect_stick(image, mask):
         Binarize the K channel using a threshold.
         """
         _, binary_k = cv2.threshold(k_channel, threshold, 255, cv2.THRESH_BINARY)
-        # Display the binary_k image using Matplotlib
-        plt.imshow(binary_k, cmap='gray')  # Use cmap='gray' for grayscale images
-        plt.title("Binary Image")  # Optional: Add a title
-        plt.axis('off')  # Optional: Turn off the axes
-        plt.show()  # Display the image
         return binary_k
 
     def refine_stick_line(line, binary_mask, max_gap=10, max_extension=1000, extra_length=50):
@@ -231,5 +209,5 @@ def detect_stick(image, mask):
 #     print(f"Refined Stick Line: Start = {refined_line[0]}, End = {refined_line[1]}")
 # else:
 #     print("No stick line could be refined.")
-image = cv2.imread("first_pics/1.jpeg")
-detect_stick(image)
+# image = cv2.imread("first_pics/1.jpeg")
+# detect_stick(image)

@@ -3,10 +3,11 @@ from detect_balls import detect_pool_balls
 from detect_board import detect_board
 from detect_holes import detecet_holes
 from detect_stick import detect_stick
+from table_start import table_start
 
 board_contour = None
 
-def capture_and_process_frame(cap):
+def capture_and_process_frame(cap, mask_for_stick):
     """Capture a single frame, apply ball detection, and return the processed frame."""
     global board_contour
     ret, frame = cap.read()
@@ -19,10 +20,10 @@ def capture_and_process_frame(cap):
     # Unpack all returned values correctly; ensure your detect_pool_balls signature matches this unpacking.
     annotated, balls_info, ball_mask, balls_contour = detect_pool_balls(frame, board_contour)
     holes_contours = detecet_holes(frame, board_contour)
-    line = detect_stick(frame)
+    line = detect_stick(frame, mask_for_stick)
 
     # show type of balls_contour
-    print(type(balls_contour[0]))
+    # print(type(balls_contour[0]))
 
     
                
@@ -56,8 +57,10 @@ def capture_and_process_frame(cap):
 
 def display_live_video(cap):
     """Continuously capture, process, and display video frames."""
+    ret, frame = cap.read()
+    mask_for_stick = table_start(frame, 180)
     while True:
-        processed_frame = capture_and_process_frame(cap)
+        processed_frame = capture_and_process_frame(cap, mask_for_stick)
         if processed_frame is None:
             break  # If frame capture fails, exit the loop
 
