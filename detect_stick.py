@@ -91,7 +91,7 @@ def detect_stick(image, mask):
         edges = cv2.Canny(binary_k_channel, 150, 250)
 
         # Detect line segments using Probabilistic Hough Transform
-        line_segments = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=30, minLineLength=50, maxLineGap=100)
+        line_segments = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=50, minLineLength=10, maxLineGap=50)
 
         if line_segments is None:
             print("No lines detected.")
@@ -101,6 +101,8 @@ def detect_stick(image, mask):
         thickest_line = None
         thickest_line_2 = None
         max_length = 0
+
+        thickest_lines = []
 
         for line in line_segments:
             x1, y1, x2, y2 = line[0]
@@ -115,8 +117,13 @@ def detect_stick(image, mask):
             return image, None
 
         # Refine the line by finding exact start and end points in the binary mask
-        start_point_1, end_point_1 = refine_stick_line(thickest_line, binary_k_channel)
-        start_point_2, end_point_2 = refine_stick_line(thickest_line_2, binary_k_channel)
+        #start_point_1, end_point_1 = refine_stick_line(thickest_line, binary_k_channel)
+        #start_point_2, end_point_2 = refine_stick_line(thickest_line_2, binary_k_channel)
+
+        start_point_1 = (thickest_line[0], thickest_line[1])
+        end_point_1 = (thickest_line[2], thickest_line[3])
+        start_point_2 = (thickest_line_2[0], thickest_line_2[1])
+        end_point_2 = (thickest_line_2[2], thickest_line_2[3])
 
         x_start_mean = (start_point_1[0] + start_point_2[0])//2
         y_start_mean = (start_point_1[1] + start_point_2[1])//2
@@ -127,7 +134,7 @@ def detect_stick(image, mask):
 
         # Draw the refined line on the original image
         result_img = image.copy()
-        if start_point_1 and end_point_1 and start_point_2 and end_point_2:
+        if start_point and end_point:
             cv2.line(result_img, start_point, end_point, (0, 255, 0), thickness=3)  # Green line
         else:
             print("Could not refine the stick line.")
@@ -138,7 +145,7 @@ def detect_stick(image, mask):
     k_channel = convert_to_cmyk_k_channel(image, mask)
 
     # Binarize the K channel
-    binary_k_channel = binarize_k_channel(k_channel, threshold=200)
+    binary_k_channel = binarize_k_channel(k_channel, threshold=220)
 
     # Detect and refine the stick line
     result_img, refined_line = detect_and_refine_stick(image, binary_k_channel)
