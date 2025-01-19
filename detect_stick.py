@@ -2,14 +2,37 @@ import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 
-def detect_stick(image):
-    def convert_to_cmyk_k_channel(image):
+def detect_stick(image, mask):
+    def convert_to_cmyk_k_channel(image, mask_2):
         """
         Convert the input image to the CMYK color model and return the K (black) channel.
         """
+        image_proc = image.copy()
+        # Create a processed image where the masked areas have a specific color
+        replacement_color = np.array([100, 100, 100], dtype=np.uint8)  # Color for masked areas
+        image_proc = image_proc * mask_2[..., None] + replacement_color * (mask_2[..., None])
+        image = image + image_proc
         image_rgb = image.astype(float) / 255.0
         K = 1 - np.max(image_rgb, axis=2)
         K = (K * 255).astype(np.uint8)  # Scale K back to 0-255 range
+        # Display the binary_k image using Matplotlib
+        # Display the K channel image
+        plt.figure(figsize=(10, 5))
+        plt.subplot(1, 2, 1)  # Subplot for the image
+        plt.imshow(K, cmap='gray')  # Use cmap='gray' for grayscale images
+        plt.title("K Channel")  # Title for the image
+        plt.axis('off')  # Turn off axes
+
+        # Display the histogram
+        plt.subplot(1, 2, 2)  # Subplot for the histogram
+        plt.hist(K.ravel(), bins=256, range=(0, 255), color='blue', alpha=0.7)  # Histogram
+        plt.title("Histogram of K Channel")
+        plt.xlabel("Pixel Value")
+        plt.ylabel("Frequency")
+
+        # Show the combined plots
+        plt.tight_layout()
+        plt.show()
         return K
 
     def binarize_k_channel(k_channel, threshold=127):
@@ -17,6 +40,11 @@ def detect_stick(image):
         Binarize the K channel using a threshold.
         """
         _, binary_k = cv2.threshold(k_channel, threshold, 255, cv2.THRESH_BINARY)
+        # Display the binary_k image using Matplotlib
+        plt.imshow(binary_k, cmap='gray')  # Use cmap='gray' for grayscale images
+        plt.title("Binary Image")  # Optional: Add a title
+        plt.axis('off')  # Optional: Turn off the axes
+        plt.show()  # Display the image
         return binary_k
 
     def refine_stick_line(line, binary_mask, max_gap=10, max_extension=1000, extra_length=50):
@@ -74,9 +102,7 @@ def detect_stick(image):
         extended_start_point = (int(start_point[0] - dx * extra_length), int(start_point[1] - dy * extra_length))
         extended_end_point = (int(end_point[0] + dx * extra_length), int(end_point[1] + dy * extra_length))
 
-        print([extended_start_point, extended_end_point])
-
-        return [extended_start_point, extended_end_point]
+        return extended_start_point, extended_end_point
 
 
     def detect_and_refine_stick(image, binary_k_channel):
@@ -109,27 +135,25 @@ def detect_stick(image):
             return image, None
 
         # Refine the line by finding exact start and end points in the binary mask
-        tuple = refine_stick_line(thickest_line, binary_k_channel)
-        print(tuple)
+        start_point, end_point = refine_stick_line(thickest_line, binary_k_channel)
 
-        # # Draw the refined line on the original image
-        # result_img = image.copy()
-        # if start_point and end_point:
-        #     cv2.line(result_img, start_point, end_point, (0, 255, 0), thickness=3)  # Green line
-        # else:
-        #     print("Could not refine the stick line.")
+        # Draw the refined line on the original image
+        result_img = image.copy()
+        if start_point and end_point:
+            cv2.line(result_img, start_point, end_point, (0, 255, 0), thickness=3)  # Green line
+        else:
+            print("Could not refine the stick line.")
 
-        return tuple
+        return result_img, (start_point, end_point)
     
     # Convert to the K channel of CMYK
-    k_channel = convert_to_cmyk_k_channel(image)
+    k_channel = convert_to_cmyk_k_channel(image, mask)
 
     # Binarize the K channel
-    binary_k_channel = binarize_k_channel(k_channel, threshold=200)
+    binary_k_channel = binarize_k_channel(k_channel, threshold=230)
 
     # Detect and refine the stick line
-    refined_line = detect_and_refine_stick(image, binary_k_channel)
-    print(refined_line)
+    result_img, refined_line = detect_and_refine_stick(image, binary_k_channel)
 
     return refined_line
 
@@ -207,3 +231,5 @@ def detect_stick(image):
 #     print(f"Refined Stick Line: Start = {refined_line[0]}, End = {refined_line[1]}")
 # else:
 #     print("No stick line could be refined.")
+image = cv2.imread("first_pics/1.jpeg")
+detect_stick(image)
