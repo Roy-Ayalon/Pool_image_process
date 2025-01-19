@@ -1,7 +1,8 @@
 import cv2
 import numpy as np
+from detect_4_lines_boundry import get_4_lines
 
-def plot_trajectory(frame, line, holes_contour, board_contour, balls_info):
+def plot_trajectory(frame, line, holes_contour, board_lines, board_contour, balls_info):
     """
     Plot the trajectory and determine the first object the line intersects.
 
@@ -96,9 +97,130 @@ def plot_trajectory(frame, line, holes_contour, board_contour, balls_info):
         text_y = 50
         cv2.putText(frame, text, (text_x, text_y), font, font_scale, color, thickness)
 
-    def plot_if_ball():
+    def plot_ball(frame, white_center, next_ball_center, next_ball_radius, stick_line, board_contour, dash_length=20, color=(255, 255, 0), thickness=2):
+        """
+        Predict and plot the trajectory of a white ball hitting another ball.
 
-        return
+        Parameters:
+            frame (ndarray): The input frame to draw on.
+            white_center (tuple): The center (x, y) of the white ball.
+            next_ball_center (tuple): The center (x, y) of the next ball to be hit.
+            next_ball_radius (int): The radius of the next ball.
+            stick_line (list): Two points defining the stick line [(x1, y1), (x2, y2)].
+            board_contour (ndarray): Contour of the board.
+            dash_length (int): Length of each dash in the dashed line.
+            color (tuple): Color of the dashed line in BGR format.
+            thickness (int): Thickness of the dashed line.
+
+        Returns:
+            None
+        """
+
+        def find_intersection_with_circle(center, radius, line_point1, line_point2):
+            """
+            Find the intersection of a line with a circle.
+
+            Parameters:
+                center (tuple): Center of the circle (x, y).
+                radius (float): Radius of the circle.
+                line_point1 (tuple): First point on the line.
+                line_point2 (tuple): Second point on the line.
+
+            Returns:
+                tuple: Intersection point (x, y) or None if no intersection.
+            """
+            cx, cy = center
+            x1, y1 = line_point1
+            x2, y2 = line_point2
+
+            # Line direction vector
+            dx, dy = x2 - x1, y2 - y1
+
+            # Quadratic coefficients
+            a = dx**2 + dy**2
+            b = 2 * (dx * (x1 - cx) + dy * (y1 - cy))
+            c = (x1 - cx)**2 + (y1 - cy)**2 - radius**2
+
+            # Solve quadratic equation
+            discriminant = b**2 - 4 * a * c
+            if discriminant < 0:
+                return None  # No intersection
+
+            # Find the two intersection points
+            t1 = (-b + np.sqrt(discriminant)) / (2 * a)
+            t2 = (-b - np.sqrt(discriminant)) / (2 * a)
+
+            # Select the closest valid intersection point
+            intersection1 = (x1 + t1 * dx, y1 + t1 * dy)
+            intersection2 = (x1 + t2 * dx, y1 + t2 * dy)
+
+            # Return the closer intersection point to the white ball center
+            return intersection1 if np.linalg.norm(np.array(intersection1) - np.array(white_center)) < np.linalg.norm(np.array(intersection2) - np.array(white_center)) else intersection2
+
+        def draw_dashed_line(start_point, slope, board_contour, color, dash_length, thickness):
+            """
+            Draw a dashed line with a given slope starting from a point.
+
+            Parameters:
+                start_point (tuple): The starting point (x, y) of the dashed line.
+                slope (float): The slope of the line.
+                board_contour (ndarray): Contour of the board.
+                color (tuple): Color of the dashed line in BGR format.
+                dash_length (int): Length of each dash in the dashed line.
+                thickness (int): Thickness of the dashed line.
+
+            Returns:
+                None
+            """
+            x, y = start_point
+            dx = 1
+            dy = slope * dx
+            norm = np.sqrt(dx**2 + dy**2)
+            dx /= norm
+            dy /= norm
+
+            current_x, current_y = x, y
+
+            for i in range(10000):  # Arbitrarily large limit
+                next_x = current_x + dash_length * dx
+                next_y = current_y + dash_length * dy
+
+                # Check if next point is within board contour
+                if cv2.pointPolygonTest(board_contour, (next_x, next_y), measureDist=False) < 0:
+                    break
+
+                # Draw dash
+                dash_start = (int(current_x), int(current_y))
+                dash_end = (int(next_x), int(next_y))
+                cv2.line(frame, dash_start, dash_end, color, thickness)
+
+                # Leave a gap
+                current_x = next_x + dash_length * dx
+                current_y = next_y + dash_length * dy
+
+        # Step 1: Find the slope of the stick line
+        (x1, y1), (x2, y2) = stick_line
+        stick_slope = (y2 - y1) / (x2 - x1) if x2 != x1 else float('inf')
+
+        # Step 2: Define the white line starting from the white ball center with the stick slope
+        white_line_point1 = white_center
+        white_line_point2 = (white_center[0] + 1, white_center[1] + stick_slope) if stick_slope != float('inf') else (white_center[0], white_center[1] + 1)
+
+        # Step 3: Find the hitting point (intersection with the next ball's circle)
+        hitting_point = find_intersection_with_circle(next_ball_center, next_ball_radius, white_line_point1, white_line_point2)
+        if hitting_point is None:
+            print("No intersection with the next ball.")
+            return
+
+        # Step 4: Find the slope of the line from the hitting point to the center of the next ball
+        next_ball_slope = (next_ball_center[1] - hitting_point[1]) / (next_ball_center[0] - hitting_point[0]) if hitting_point[0] != next_ball_center[0] else float('inf')
+
+        # Step 5: Draw a dashed line starting at the center of the next ball with the calculated slope
+        draw_dashed_line(next_ball_center, next_ball_slope, board_contour, color, dash_length, thickness)
+
+        # Draw the hitting point for reference
+        cv2.circle(frame, (int(hitting_point[0]), int(hitting_point[1])), 5, (0, 0, 255), -1)  # Red dot at hitting point
+
 
     def calculate_angle_between_lines(line1_slope, line2_slope):
         """
@@ -290,8 +412,7 @@ def plot_trajectory(frame, line, holes_contour, board_contour, balls_info):
             return
 
     # Check intersection with the board - need to change this part to check for intersection with each edge of the board
-    board_mask = np.zeros((height, width), dtype=np.uint8)
-    cv2.drawContours(board_mask, [board_contour], -1, 255, thickness=cv2.FILLED)
+    _, _, board_mask = get_4_lines(frame)
 
     intersection = cv2.bitwise_and(line_mask, board_mask)
     if np.any(intersection):

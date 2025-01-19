@@ -55,7 +55,7 @@ def merge_lines_with_extension(lines, axis, tolerance, height):
     merged_lines = sorted(merged_lines, key=lambda l: l[0] if axis == 'x' else l[1])[:2]
     return merged_lines
 
-def get_inner_table(frame):
+def get_4_lines(frame):
     """
     Obtain a binary mask of the inner table region from the input frame,
     detect boundary lines using Hough Transform, and draw them on the frame.
@@ -97,7 +97,13 @@ def get_inner_table(frame):
     merged_verticals = merge_lines_with_extension(vertical_lines, axis='x', tolerance=50, height=height)
     merged_horizontals = merge_lines_with_extension(horizontal_lines, axis='y', tolerance=50, height=height)
 
-    return merged_verticals, merged_horizontals
+    # i want to make mask of these 4 lines
+    mask = np.zeros_like(binary_mask)
+    for line in merged_verticals + merged_horizontals:
+        x1, y1, x2, y2 = line
+        cv2.line(mask, (x1, y1), (x2, y2), 255, 2)
+        
+    return merged_verticals, merged_horizontals, mask
 
     # Draw the merged lines on the frame
     for line in merged_verticals + merged_horizontals:
