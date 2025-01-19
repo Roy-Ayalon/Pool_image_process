@@ -21,29 +21,29 @@ def detect_board(frame):
     contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     largest_contour = max(contours, key=cv2.contourArea)
 
-    # show polygon
-    visualized_image = frame.copy()
-    cv2.drawContours(visualized_image, [largest_contour], -1, (0, 255, 0), 2)
+    # # show polygon
+    # visualized_image = frame.copy()
+    # cv2.drawContours(visualized_image, [largest_contour], -1, (0, 255, 0), 2)
 
-    # Show the rotated rectangle
-    cv2.imshow("Original Image with Rotated Rectangle", visualized_image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    # # Show the rotated rectangle
+    # cv2.imshow("Original Image with Rotated Rectangle", visualized_image)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
 
-    annot, ball_info, ball_mask = detect_pool_balls('first_pics/1.jpeg')
+    # annot, ball_info, ball_mask = detect_pool_balls('first_pics/1.jpeg')
 
-    # binary mask of the rotated rectangle
-    mask = np.zeros_like(binary_mask)
-    cv2.drawContours(mask, [largest_contour], -1, 255, -1)
-    # Draw the mask on the board
-    board_with_mask = cv2.bitwise_and(frame, frame, mask=mask)
+    # # binary mask of the rotated rectangle
+    # mask = np.zeros_like(binary_mask)
+    # cv2.drawContours(mask, [largest_contour], -1, 255, -1)
+    # # Draw the mask on the board
+    # board_with_mask = cv2.bitwise_and(frame, frame, mask=mask)
 
     return largest_contour
 
-frame = cv2.imread('/Users/mikitatarjitzky/Documents/DIP_project/WhatsApp Image 2024-12-29 at 09.40.29 (2).jpeg')
-board_with_mask = detect_board(frame)
+# frame = cv2.imread('/Users/mikitatarjitzky/Documents/DIP_project/WhatsApp Image 2024-12-29 at 09.40.29 (2).jpeg')
+# board_with_mask = detect_board(frame)
 
-cv2.imshow("Board with Mask", board_with_mask)
+# cv2.imshow("Board with Mask", board_with_mask)
 # # Show the binary mask of the table
 # cv2.imshow("Binary Mask of the Table", mask)
 # cv2.waitKey(0)

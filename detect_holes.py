@@ -2,11 +2,11 @@ import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 
-image_path = '/Users/mikitatarjitzky/Documents/DIP_project/WhatsApp Image 2024-12-29 at 09.40.28.jpeg'
-image = cv2.imread(image_path)
+# image_path = '/Users/mikitatarjitzky/Documents/DIP_project/WhatsApp Image 2024-12-29 at 09.40.28.jpeg'
+# image = cv2.imread(image_path)
 
-mask_polygon_path = '/Users/mikitatarjitzky/Documents/DIP_project/mask.png'
-mask_polygon = cv2.imread(mask_polygon_path, cv2.IMREAD_GRAYSCALE)
+# mask_polygon_path = '/Users/mikitatarjitzky/Documents/DIP_project/mask.png'
+# mask_polygon = cv2.imread(mask_polygon_path, cv2.IMREAD_GRAYSCALE)
 
 def detecet_holes(image, mask_polygon):
     # Extract polygon points from the mask
@@ -14,9 +14,15 @@ def detecet_holes(image, mask_polygon):
         """
         Extract the largest polygon (contour) points from a binary mask.
         """
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if not contours:
-            raise ValueError("No contours found in the mask.")
+        cv2.imshow("mask", mask)        
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        try:
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        except Exception as E:
+            print(E)
+        # if not contours:
+        #     raise ValueError("No contours found in the mask.")
         largest_contour = max(contours, key=cv2.contourArea)
         return largest_contour
 

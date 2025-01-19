@@ -2,7 +2,7 @@ import cv2
 from detect_balls import detect_pool_balls
 from detect_board import detect_board
 from detect_holes import detecet_holes
-from detect_stick import detect_and_refine_stick
+from detect_stick import detect_stick
 
 def capture_and_process_frame(cap):
     """Capture a single frame, apply ball detection, and return the processed frame."""
@@ -11,10 +11,10 @@ def capture_and_process_frame(cap):
         print("Failed to capture frame.")
         return None
 
-    _, _, _, balls_contour = detect_pool_balls(frame) 
+    _, _, _, balls_contour = detect_pool_balls(frame)
     board_contour = detect_board(frame)
-    holes_contours = detecet_holes(frame)
-    _, line = detect_and_refine_stick(frame, board_contour)
+    holes_contours = detecet_holes(frame, board_contour)
+    _, line = detect_stick(frame, board_contour)
 
     # Draw the detected objects on the frame
     cv2.drawContours(frame, [board_contour], -1, (255, 255, 0), thickness=2)

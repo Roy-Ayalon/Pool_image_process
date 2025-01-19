@@ -70,7 +70,7 @@ def classify_ball_color(hsv_ball_roi):
         return "white"  # fallback
     return best_color
 
-def detect_pool_balls(image_path):
+def detect_pool_balls(image):
     """
     Detects circles (balls) via HoughCircles, extracts each ball's color,
     and classifies them by standard 8-ball numbering.
@@ -79,10 +79,10 @@ def detect_pool_balls(image_path):
         balls_info      : list of (x, y, r, label, number)
         ball_mask       : mask of the balls
     """
-    # 1. Load the image
-    image = cv2.imread(image_path)
-    if image is None:
-        raise IOError(f"Could not open image at {image_path}")
+    # # 1. Load the image
+    # image = cv2.imread(image_path)
+    # if image is None:
+    #     raise IOError(f"Could not open image at {image_path}")
 
     # We'll draw on a copy so we don't modify the original
     annotated = image.copy()
