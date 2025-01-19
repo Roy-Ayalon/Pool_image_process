@@ -4,14 +4,18 @@ from detect_board import detect_board
 from detect_holes import detecet_holes
 from detect_stick import detect_stick
 
+board_contour = None
+
 def capture_and_process_frame(cap):
     """Capture a single frame, apply ball detection, and return the processed frame."""
+    global board_contour
     ret, frame = cap.read()
     if not ret:
         print("Failed to capture frame.")
         return None
-
-    board_contour = detect_board(frame)
+    # detect board only once
+    if board_contour is None:
+        board_contour = detect_board(frame)
     # Unpack all returned values correctly; ensure your detect_pool_balls signature matches this unpacking.
     annotated, balls_info, ball_mask, balls_contour = detect_pool_balls(frame, board_contour)
     holes_contours = detecet_holes(frame, board_contour)
