@@ -60,7 +60,7 @@ def capture_and_process_frame(cap, mask_for_stick):
 def display_live_video(cap):
     """Continuously capture, process, and display video frames."""
     ret, frame = cap.read()
-    mask_for_stick = table_start(frame, 180)
+    mask_for_stick = table_start(frame, 200)
     while True:
         processed_frame = capture_and_process_frame(cap, mask_for_stick)
         if processed_frame is None:
@@ -72,7 +72,7 @@ def display_live_video(cap):
     cv2.destroyAllWindows()
 
 def main():
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(1)
     if not cap.isOpened():
         print("Cannot open camera")
         return
