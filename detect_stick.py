@@ -165,18 +165,18 @@ def detect_stick(image):
 
 #     return result_img, thickest_line, edges
 
-# Load the image
-image_path = "/Users/mikitatarjitzky/Documents/DIP_project/stick3.jpg"  # Replace with your image path
-image = cv2.imread(image_path)
+# # Load the image
+# image_path = "/Users/mikitatarjitzky/Documents/DIP_project/stick3.jpg"  # Replace with your image path
+# image = cv2.imread(image_path)
 
-# Convert to the K channel of CMYK
-k_channel = convert_to_cmyk_k_channel(image)
+# # Convert to the K channel of CMYK
+# k_channel = convert_to_cmyk_k_channel(image)
 
-# Binarize the K channel
-binary_k_channel = binarize_k_channel(k_channel, threshold=200)
+# # Binarize the K channel
+# binary_k_channel = binarize_k_channel(k_channel, threshold=200)
 
-# Detect and refine the stick line
-result_img, refined_line = detect_and_refine_stick(image, binary_k_channel)
+# # Detect and refine the stick line
+# result_img, refined_line = detect_and_refine_stick(image, binary_k_channel)
 
 # # Display results
 # plt.figure(figsize=(15, 8))
