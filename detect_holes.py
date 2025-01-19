@@ -1,30 +1,17 @@
 import cv2
 import numpy as np
-from matplotlib import pyplot as plt
 
-# image_path = '/Users/mikitatarjitzky/Documents/DIP_project/WhatsApp Image 2024-12-29 at 09.40.28.jpeg'
-# image = cv2.imread(image_path)
+def detecet_holes(image, contour_polygon):
+    """
+    Detect holes in a table using the provided contour polygon.
 
-# mask_polygon_path = '/Users/mikitatarjitzky/Documents/DIP_project/mask.png'
-# mask_polygon = cv2.imread(mask_polygon_path, cv2.IMREAD_GRAYSCALE)
+    Parameters:
+        image (ndarray): The input image (BGR format).
+        contour_polygon (ndarray): A contour of the polygon (Nx1x2 array).
 
-def detecet_holes(image, mask_polygon):
-    # Extract polygon points from the mask
-    def extract_polygon_points(mask):
-        """
-        Extract the largest polygon (contour) points from a binary mask.
-        """
-        cv2.imshow("mask", mask)        
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-        try:
-            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        except Exception as E:
-            print(E)
-        # if not contours:
-        #     raise ValueError("No contours found in the mask.")
-        largest_contour = max(contours, key=cv2.contourArea)
-        return largest_contour
+    Returns:
+        contours (list): List of detected contours representing holes.
+    """
 
     # Calculate the rotated rectangle enclosing the polygon
     def calculate_rotated_rectangle(polygon_points):
@@ -37,26 +24,26 @@ def detecet_holes(image, mask_polygon):
         return rotated_rectangle
 
     # Subtract the shapes
-    def subtract_shapes_mask(color_img, mask_polygon, rotated_rectangle):
+    def subtract_shapes_mask(color_img, polygon_contour, rotated_rectangle):
         """
-        Subtract the inner contour from the rotated rectangle and debug the masks.
+        Subtract the inner polygon from the rotated rectangle and debug the masks.
         """
-        mask_polygon = cv2.resize(mask_polygon, (color_img.shape[1], color_img.shape[0]))
-
-        # Ensure the masks have the same size as the input image
-        if mask_polygon.shape != color_img.shape[:2]:
-            raise ValueError("Mask polygon size does not match the input image size.")
-        
-        # Create blank mask for the rotated rectangle
+        # Create blank masks
+        polygon_mask = np.zeros(color_img.shape[:2], dtype=np.uint8)
         rect_mask = np.zeros(color_img.shape[:2], dtype=np.uint8)
+
+        # Fill the polygon contour on the mask
+        cv2.fillPoly(polygon_mask, [polygon_contour], 255)
+        
+        # Fill the rotated rectangle on a separate mask
         cv2.fillPoly(rect_mask, [rotated_rectangle], 255)
 
         # Debug shapes of masks
-        print(f"Contour mask shape: {mask_polygon.shape}")
+        print(f"Polygon mask shape: {polygon_mask.shape}")
         print(f"Rectangle mask shape: {rect_mask.shape}")
 
-        # Subtract contour mask from rectangle mask
-        subtraction_result = cv2.subtract(rect_mask, mask_polygon)
+        # Subtract polygon mask from rectangle mask
+        subtraction_result = cv2.subtract(rect_mask, polygon_mask)
 
         # Highlight the subtraction result on the original image
         result_img = color_img.copy()
@@ -64,26 +51,10 @@ def detecet_holes(image, mask_polygon):
 
         return result_img, subtraction_result
 
-    ## if i have a mask of the table i can find the holes in the table by subtracting the mask from the image
-
     def detect_and_remove_long_lines(binary_mask, rho=1, theta=np.pi/180, threshold=100,
                                     min_line_length=100, max_line_gap=10, length_threshold=150):
         """
         Detect and remove long straight lines from a binary mask using the Hough Line Transform.
-
-        Parameters:
-            binary_mask (ndarray): Input binary mask.
-            rho (float): Distance resolution of the accumulator in pixels.
-            theta (float): Angle resolution of the accumulator in radians.
-            threshold (int): Accumulator threshold for detecting lines.
-            min_line_length (int): Minimum length of a line to be detected.
-            max_line_gap (int): Maximum allowed gap between points on the same line.
-            length_threshold (int): Minimum length of a line to consider it "long."
-
-        Returns:
-            cleaned_mask (ndarray): Binary mask with long lines removed.
-            long_lines_mask (ndarray): Binary mask of detected long lines.
-            long_lines (list): List of detected long lines [(x1, y1, x2, y2)].
         """
         # Detect lines using Hough Transform
         lines = cv2.HoughLinesP(binary_mask, rho, theta, threshold,
@@ -113,16 +84,6 @@ def detecet_holes(image, mask_polygon):
     def find_and_draw_contours(original_image, cleaned_mask, min_area=2000, max_area=10000):
         """
         Find contours in the cleaned mask, filter them by area, and overlay them on the original image.
-
-        Parameters:
-            original_image (ndarray): The original input image (BGR format).
-            cleaned_mask (ndarray): The binary mask with lines removed.
-            min_area (int): Minimum area of contours to keep.
-            max_area (int): Maximum area of contours to keep.
-
-        Returns:
-            filtered_image (ndarray): The original image with filtered contours drawn.
-            filtered_contours (list): List of filtered contours.
         """
         # Find contours in the cleaned mask
         contours, _ = cv2.findContours(cleaned_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -142,24 +103,19 @@ def detecet_holes(image, mask_polygon):
 
         return filtered_image, binary_mask, filtered_contours
 
-    # Extract polygon points
-    polygon_points = extract_polygon_points(mask_polygon)
+    # Calculate the rotated rectangle from the input contour_polygon
+    rotated_rectangle = calculate_rotated_rectangle(contour_polygon)
 
-    # Calculate the rotated rectangle
-    rotated_rectangle = calculate_rotated_rectangle(polygon_points)
-
-    # Subtract the shapes
-    result_img, subtraction_result = subtract_shapes_mask(image, mask_polygon, rotated_rectangle)
-
-    binary_mask = subtraction_result
+    # Subtract the shapes to get a binary mask
+    result_img, subtraction_result = subtract_shapes_mask(image, contour_polygon, rotated_rectangle)
 
     # Ensure binary mask is valid
-    if binary_mask is None:
-        raise ValueError("Failed to load binary mask. Check the file path.")
+    if subtraction_result is None or subtraction_result.size == 0:
+        raise ValueError("Failed to generate binary mask. Check the inputs.")
 
     # Detect and remove long lines from the binary mask
     cleaned_mask, long_lines_mask, long_lines = detect_and_remove_long_lines(
-        binary_mask, rho=1, theta=np.pi/180, threshold=100,
+        subtraction_result, rho=1, theta=np.pi/180, threshold=100,
         min_line_length=50, max_line_gap=10, length_threshold=150
     )
 
@@ -167,4 +123,3 @@ def detecet_holes(image, mask_polygon):
     contoured_image, binary, contours = find_and_draw_contours(image, cleaned_mask)
 
     return contours
-

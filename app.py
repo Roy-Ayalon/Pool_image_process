@@ -14,7 +14,7 @@ def capture_and_process_frame(cap):
     _, _, _, balls_contour = detect_pool_balls(frame)
     board_contour = detect_board(frame)
     holes_contours = detecet_holes(frame, board_contour)
-    _, line = detect_stick(frame, board_contour)
+    _, line = detect_stick(frame)
 
     # Draw the detected objects on the frame
     cv2.drawContours(frame, [board_contour], -1, (255, 255, 0), thickness=2)
