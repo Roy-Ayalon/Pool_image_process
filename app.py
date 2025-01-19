@@ -4,6 +4,7 @@ from detect_board import detect_board
 from detect_holes import detecet_holes
 from detect_stick import detect_stick
 from table_start import table_start
+from trajectory import plot_trajectory
 
 board_contour = None
 
@@ -21,6 +22,7 @@ def capture_and_process_frame(cap, mask_for_stick):
     annotated, balls_info, ball_mask, balls_contour = detect_pool_balls(frame, board_contour)
     holes_contours = detecet_holes(frame, board_contour)
     line = detect_stick(frame, mask_for_stick)
+    #plot_trajectory(frame, line, holes_contours, board_contour, balls_info)
 
     # show type of balls_contour
     # print(type(balls_contour[0]))
