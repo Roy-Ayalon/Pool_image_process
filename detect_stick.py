@@ -74,7 +74,9 @@ def detect_stick(image):
         extended_start_point = (int(start_point[0] - dx * extra_length), int(start_point[1] - dy * extra_length))
         extended_end_point = (int(end_point[0] + dx * extra_length), int(end_point[1] + dy * extra_length))
 
-        return extended_start_point, extended_end_point
+        print([extended_start_point, extended_end_point])
+
+        return [extended_start_point, extended_end_point]
 
 
     def detect_and_refine_stick(image, binary_k_channel):
@@ -107,16 +109,17 @@ def detect_stick(image):
             return image, None
 
         # Refine the line by finding exact start and end points in the binary mask
-        start_point, end_point = refine_stick_line(thickest_line, binary_k_channel)
+        tuple = refine_stick_line(thickest_line, binary_k_channel)
+        print(tuple)
 
-        # Draw the refined line on the original image
-        result_img = image.copy()
-        if start_point and end_point:
-            cv2.line(result_img, start_point, end_point, (0, 255, 0), thickness=3)  # Green line
-        else:
-            print("Could not refine the stick line.")
+        # # Draw the refined line on the original image
+        # result_img = image.copy()
+        # if start_point and end_point:
+        #     cv2.line(result_img, start_point, end_point, (0, 255, 0), thickness=3)  # Green line
+        # else:
+        #     print("Could not refine the stick line.")
 
-        return result_img, (start_point, end_point)
+        return tuple
     
     # Convert to the K channel of CMYK
     k_channel = convert_to_cmyk_k_channel(image)
@@ -125,7 +128,8 @@ def detect_stick(image):
     binary_k_channel = binarize_k_channel(k_channel, threshold=200)
 
     # Detect and refine the stick line
-    result_img, refined_line = detect_and_refine_stick(image, binary_k_channel)
+    refined_line = detect_and_refine_stick(image, binary_k_channel)
+    print(refined_line)
 
     return refined_line
 

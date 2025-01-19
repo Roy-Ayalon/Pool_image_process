@@ -14,7 +14,7 @@ def capture_and_process_frame(cap):
     _, _, _, balls_contour = detect_pool_balls(frame)
     board_contour = detect_board(frame)
     holes_contours = detecet_holes(frame, board_contour)
-    _, line = detect_stick(frame)
+    line = detect_stick(frame)
 
     # Draw the detected objects on the frame
     if board_contour is not None:
@@ -34,6 +34,8 @@ def capture_and_process_frame(cap):
             print("Line points are not in the correct format:", line)
     else:
         print("No valid line detected or line is not in expected format.")
+
+    return frame
 
 def display_live_video(cap):
     """Continuously capture, process, and display video frames."""
