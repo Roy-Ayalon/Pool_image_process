@@ -24,7 +24,7 @@ COLOR_TO_BALL = {
 }
 
 # -------------------------------------------------------------------------
-# 2) Approximate HSV color ranges
+# 2) Approximate HSV color ranges MIKI the KIng
 #    These are VERY approximate and must be tuned for your lighting.
 #    For example, "red" might appear around hue=0 or hue~170-180.
 # -------------------------------------------------------------------------
