@@ -11,18 +11,31 @@ def capture_and_process_frame(cap):
         print("Failed to capture frame.")
         return None
 
-    _, _, _, balls_contour = detect_pool_balls(frame)
     board_contour = detect_board(frame)
+    # Unpack all returned values correctly; ensure your detect_pool_balls signature matches this unpacking.
+    annotated, balls_info, ball_mask, balls_contour = detect_pool_balls(frame, board_contour)
     holes_contours = detecet_holes(frame, board_contour)
     line = detect_stick(frame)
+
+    # show type of balls_contour
+    print(type(balls_contour[0]))
+
+    
+               
 
     # Draw the detected objects on the frame
     if board_contour is not None:
         cv2.drawContours(frame, [board_contour], -1, (0, 255, 0), thickness=2)
     if holes_contours:
         cv2.drawContours(frame, holes_contours, -1, (0, 255, 0), thickness=2)
-    if balls_contour:
-        cv2.drawContours(frame, balls_contour, -1, (0, 0, 255), thickness=2)
+    # Check if balls_contour is valid and non-empty
+    if balls_contour is not None and len(balls_contour) > 0:
+        for ball_info in balls_info:
+            x, y, r, ball_label, _ = ball_info
+            cv2.circle(frame, (x, y), r, (255, 0, 0), 2)
+            cv2.putText(frame, ball_label, (x - r, y - r - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+
+
     # Assuming detect_stick returns a tuple/list of two points, each being (x, y)
     if line and isinstance(line, (list, tuple)) and len(line) == 2:
         pt1, pt2 = line

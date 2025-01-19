@@ -98,6 +98,8 @@ def detect_pool_balls(image, board_contour):
     mask = np.zeros_like(gray)
     cv2.drawContours(mask, [board_contour], -1, 255, -1)
     gray = cv2.bitwise_and(gray, gray, mask=mask)
+
+
     
     # 3. Hough Circle detection
     #    Adjust these params to fit your image size and ball sizes
@@ -105,11 +107,11 @@ def detect_pool_balls(image, board_contour):
         gray,
         cv2.HOUGH_GRADIENT,
         dp=1.2,
-        minDist=20,
-        param1=100,
-        param2=25,
-        minRadius=25,
-        maxRadius=30
+        minDist=15,
+        param1=10,
+        param2=20,
+        minRadius=20,
+        maxRadius=25
     )
 
     balls_info = []
@@ -154,72 +156,11 @@ def detect_pool_balls(image, board_contour):
     else:
         print("No circles detected by Hough transform.")
 
+    
+
     # create a mask of the balls
     for (x, y, r, label, number) in balls_info:
         cv2.circle(ball_mask, (x, y), r, 255, -1)
 
     return annotated, balls_info, ball_mask, contour_balls
 
-# -------------------------------------------------------------------------
-#  Main script usage
-# -------------------------------------------------------------------------
-if __name__ == "__main__":
-    # Change this to your image path
-    image_path = "first_pics/1.jpeg"
-
-    # extract colors to balls using select_roi
-    image = cv2.imread(image_path)
-    if image is None:
-        raise IOError(f"Could not open image at {image_path}")
-    
-    # hsv
-    hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    """
-    for color in COLOR_RANGES:
-        print(f"Select ROI for {color} ball")
-        roi = cv2.selectROI(hsv_image, False)
-        cv2.destroyAllWindows()
-        # color of the ball
-        hsv_roi = hsv_image[int(roi[1]):int(roi[1]+roi[3]), int(roi[0]):int(roi[0]+roi[2])]
-        print(f"Selected HSV ROI")
-        print(f"Average H: {np.mean(hsv_roi[:,:,0]):.2f}")
-        print(f"Average S: {np.mean(hsv_roi[:,:,1]):.2f}")
-        print(f"Average V: {np.mean(hsv_roi[:,:,2]):.2f}")
-       """
-    
-    # choose 2 colors(by select ROI) and print their color ranges in hsv
-    """
-    print("Select ROI for two colors")
-    roi1 = cv2.selectROI(hsv_image, False)
-    cv2.destroyAllWindows()
-    roi2 = cv2.selectROI(hsv_image, False)
-    cv2.destroyAllWindows()
-    hsv_roi1 = hsv_image[int(roi1[1]):int(roi1[1]+roi1[3]), int(roi1[0]):int(roi1[0]+roi1[2])]
-    hsv_roi2 = hsv_image[int(roi2[1]):int(roi2[1]+roi2[3]), int(roi2[0]):int(roi2[0]+roi2[2])]
-    print(f"Selected HSV ROI 1")
-    print(f"Average H: {np.mean(hsv_roi1[:,:,0]):.2f}")
-    print(f"Average S: {np.mean(hsv_roi1[:,:,1]):.2f}")
-    print(f"Average V: {np.mean(hsv_roi1[:,:,2]):.2f}")
-    print(f"Selected HSV ROI 2")
-    print(f"Average H: {np.mean(hsv_roi2[:,:,0]):.2f}")
-    print(f"Average S: {np.mean(hsv_roi2[:,:,1]):.2f}")
-    print(f"Average V: {np.mean(hsv_roi2[:,:,2]):.2f}")
-"""
-
-
-
-    annotated_image, balls, balls_mask = detect_pool_balls(image_path)
-
-    # Print results
-    for (x, y, r, label, number) in balls:
-        print(f"Detected {label} at ({x}, {y}), radius={r}")
-
-    # Show final annotated image
-    cv2.imshow("Detected Pool Balls", annotated_image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
-    # show the mask of the balls
-    cv2.imshow("Mask of the balls", balls_mask)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
