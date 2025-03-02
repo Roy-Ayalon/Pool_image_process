@@ -92,13 +92,13 @@ def detect_pool_balls(image, board_contour):
 
     # 2. Convert to grayscale & blur
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    gray = cv2.medianBlur(gray, 5)
+    #gray = cv2.medianBlur(gray, 5)
 
     # find only the circles in contour over the original image
     mask = np.zeros_like(gray)
+    #gray_image = y_i.astype(np.uint8)
     cv2.drawContours(mask, [board_contour], -1, 255, -1)
     gray = cv2.bitwise_and(gray, gray, mask=mask)
-
 
     
     # 3. Hough Circle detection
@@ -106,22 +106,21 @@ def detect_pool_balls(image, board_contour):
     circles = cv2.HoughCircles(
         gray,
         cv2.HOUGH_GRADIENT,
-        dp=1.2,
+        dp=2,
         minDist=15,
-        param1=10,
-        param2=20,
-        minRadius=20,
-        maxRadius=25
+        param1=5,
+        param2=35,
+        minRadius=11,
+        maxRadius=13
     )
 
     balls_info = []
     contour_balls = []
-
+    binary = np.zeros_like(image)
     if circles is not None and len(circles) > 0:
         # Convert to int32 (avoid uint16 overflow when subtracting)
         circles = np.uint16(np.around(circles))
         circles = circles.astype(np.int32)  # each circle is now (x, y, r)
-
         for (x, y, r) in circles[0]:
             # 4. Boundary check: skip circles that go out of the image
             if (x - r < 0) or (y - r < 0) or (x + r >= image.shape[1]) or (y + r >= image.shape[0]):
@@ -137,19 +136,19 @@ def detect_pool_balls(image, board_contour):
         
             # Use the color name to determine if it's solid or striped
             ball_number = COLOR_TO_BALL[color_name]
-            ball_label  = f"{color_name} #{ball_number}"
+            ball_label  = f""
 
             # 7. Save info
             balls_info.append((x, y, r, ball_label, ball_number))
 
             # 8. Draw the circle & label on the annotated image
-            cv2.circle(annotated, (x, y), r, (255, 0, 0), 2)
-            cv2.putText(
-                annotated, ball_label,
-                (x - r, y - r - 5),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.6, (255, 0, 0), 2
-            )
+            cv2.circle(binary, (x, y), r, (255, 0, 0), 1)
+            #cv2.putText(
+            #    annotated, ball_label,
+            #    (x - r, y - r - 5),
+            #    cv2.FONT_HERSHEY_SIMPLEX,
+            #    0.6, (255, 0, 0), 2
+            #)
 
             # add contour of the ball to the list
             contour_balls.append(cv2.circle(ball_mask, (x, y), r, 255, -1))
@@ -162,5 +161,5 @@ def detect_pool_balls(image, board_contour):
     for (x, y, r, label, number) in balls_info:
         cv2.circle(ball_mask, (x, y), r, 255, -1)
 
-    return annotated, balls_info, ball_mask, contour_balls
+    return annotated, balls_info, ball_mask, contour_balls, binary
 

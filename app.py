@@ -5,6 +5,7 @@ from detect_holes import detecet_holes
 from detect_stick import detect_stick
 from table_start import table_start
 from trajectory import plot_trajectory
+import matplotlib.pyplot as plt
 
 board_contour = None
 
@@ -15,14 +16,22 @@ def capture_and_process_frame(cap, mask_for_stick):
     if not ret:
         print("Failed to capture frame.")
         return None
-    # detect board only once
-    if board_contour is None:
-        board_contour = detect_board(frame)
+    # Apply Gaussian Blur
+    frame = cv2.GaussianBlur(frame, (5, 5), 0)  # (5, 5) is the kernel size, adjust it
+        
+
+    board_contour, binary_image = detect_board(frame)
     # Unpack all returned values correctly; ensure your detect_pool_balls signature matches this unpacking.
-    annotated, balls_info, ball_mask, balls_contour = detect_pool_balls(frame, board_contour)
-    holes_contours = detecet_holes(frame, board_contour)
-    line = detect_stick(frame, mask_for_stick)
+    annotated, balls_info, ball_mask, balls_contour, binary_balls = detect_pool_balls(frame, board_contour)
+    binary_image = binary_image + binary_balls
+    #holes_contours = detecet_holes(frame, board_contour)
+    binary_stick, line = detect_stick(frame, mask_for_stick)
     #plot_trajectory(frame, line, holes_contours, board_contour, balls_info)
+    binary_image = binary_image + binary_stick
+
+    plt.imshow(binary_image, cmap="gray")  # Show as grayscale
+    plt.axis("off")  # Hide axes
+    plt.show()
 
     # show type of balls_contour
     # print(type(balls_contour[0]))
@@ -33,8 +42,8 @@ def capture_and_process_frame(cap, mask_for_stick):
     # Draw the detected objects on the frame
     if board_contour is not None:
         cv2.drawContours(frame, [board_contour], -1, (0, 255, 0), thickness=2)
-    if holes_contours:
-        cv2.drawContours(frame, holes_contours, -1, (0, 255, 0), thickness=2)
+    #if holes_contours:
+    #    cv2.drawContours(frame, holes_contours, -1, (0, 255, 0), thickness=2)
     # Check if balls_contour is valid and non-empty
     if balls_contour is not None and len(balls_contour) > 0:
         for ball_info in balls_info:
@@ -60,14 +69,14 @@ def capture_and_process_frame(cap, mask_for_stick):
 def display_live_video(cap):
     """Continuously capture, process, and display video frames."""
     ret, frame = cap.read()
-    mask_for_stick = table_start(frame, 180)
+    trash, mask_for_stick = detect_board(frame)
     while True:
         processed_frame = capture_and_process_frame(cap, mask_for_stick)
         if processed_frame is None:
             break  # If frame capture fails, exit the loop
 
         cv2.imshow('Live Video', processed_frame)
-        if cv2.waitKey(33) & 0xFF == ord('q'):  # Wait for 33 ms and check for 'q' to quit
+        if cv2.waitKey(1000) & 0xFF == ord('q'):  # Wait for 33 ms and check for 'q' to quit
             break
     cv2.destroyAllWindows()
 
