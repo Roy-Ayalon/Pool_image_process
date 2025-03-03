@@ -21,7 +21,7 @@ def detect_board(frame, debug=False):
     # Threshold based on the LAB A channel
     #range_min = 30
     #range_max = 80
-    threshold = 70
+    threshold = 45
     hist, bins = np.histogram(A_normalized.flatten(), bins=256, range=(0, 255))
     max_x = np.argmax(hist[:threshold])
     threshold_x = 25

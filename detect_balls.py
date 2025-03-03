@@ -106,13 +106,24 @@ def detect_pool_balls(image, board_contour):
     circles = cv2.HoughCircles(
         gray,
         cv2.HOUGH_GRADIENT,
-        dp=2,
-        minDist=15,
-        param1=5,
-        param2=35,
-        minRadius=11,
-        maxRadius=13
+        dp=1.5,
+        minDist=10,
+        param1=50,
+        param2=30,
+        minRadius=5,
+        maxRadius=20
     )
+
+    # circles = cv2.HoughCircles(
+    #     gray,
+    #     cv2.HOUGH_GRADIENT,
+    #     dp=2,
+    #     minDist=15,
+    #     param1=5,
+    #     param2=35,
+    #     minRadius=11,
+    #     maxRadius=13
+    # )
 
     balls_info = []
     contour_balls = []

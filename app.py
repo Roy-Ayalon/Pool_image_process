@@ -6,6 +6,8 @@ from detect_stick import detect_stick
 from table_start import table_start
 from trajectory import plot_trajectory
 import matplotlib.pyplot as plt
+from stick_new import highlight_color
+import numpy as np
 
 board_contour = None
 
@@ -23,20 +25,19 @@ def capture_and_process_frame(cap, board_contour, binary_image):
     annotated, balls_info, ball_mask, balls_contour, binary_balls = detect_pool_balls(frame, board_contour)
     binary_image_2 = binary_image + binary_balls
     #holes_contours = detecet_holes(frame, board_contour)
-    binary_stick, line = detect_stick(frame, binary_image)
+    binary_stick, start_point, end_point = detect_stick(frame, binary_image)
+    #draw the line of detect stick
+    print(start_point, end_point)
+    #cv2.line(frame, line[0], line[1], (0, 255, 0))
+
+
+
     #plot_trajectory(frame, line, holes_contours, board_contour, balls_info)
     binary_image_2 = binary_image_2 + binary_stick
 
-    plt.imshow(binary_image_2, cmap="gray")  # Show as grayscale
-    plt.axis("off")  # Hide axes
-    plt.show()
-
-    # show type of balls_contour
-    # print(type(balls_contour[0]))
-
-    
+    # Apply color detection (detects and highlights specific color in frame)
+    frame, color_mask = highlight_color(frame, board_contour, target_bgr=(49, 74, 82))
                
-
     # Draw the detected objects on the frame
     if board_contour is not None:
         cv2.drawContours(frame, [board_contour], -1, (0, 255, 0), thickness=2)
@@ -74,12 +75,15 @@ def display_live_video(cap):
             break  # If frame capture fails, exit the loop
 
         cv2.imshow('Live Video', processed_frame)
-        if cv2.waitKey(33) & 0xFF == ord('q'):  # Wait for 33 ms and check for 'q' to quit
+        if cv2.waitKey(1) & 0xFF == ord('q'):  # Wait for 33 ms and check for 'q' to quit
+            cv2.waitKey(1)
+            cv2.destroyAllWindows()
             break
-    cv2.destroyAllWindows()
+    #cv2.destroyAllWindows()
+        cv2.waitKey(1)
 
 def main():
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(0)
     if not cap.isOpened():
         print("Cannot open camera")
         return

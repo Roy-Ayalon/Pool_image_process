@@ -97,7 +97,7 @@ def detect_stick(image, mask):
 
         if line_segments is None:
             print("No lines detected.")
-            return result_img, None
+            return result_img, None, None
 
         # Find the thickest line
         thickest_line = None
@@ -116,7 +116,7 @@ def detect_stick(image, mask):
 
         if not thickest_line or not thickest_line_2:
             print("No valid line found.")
-            return result_img, None
+            return result_img, None, None
 
         # Refine the line by finding exact start and end points in the binary mask
         start_point_1, end_point_1 = refine_stick_line(thickest_line, binary_k_channel)
@@ -141,7 +141,7 @@ def detect_stick(image, mask):
         else:
             print("Could not refine the stick line.")
 
-        return result_img, (start_point, end_point)
+        return result_img, start_point, end_point
     
     # Convert to the K channel of CMYK
     k_channel = convert_to_cmyk_k_channel(image, mask)
@@ -150,9 +150,9 @@ def detect_stick(image, mask):
     binary_k_channel = binarize_k_channel(k_channel, threshold=220)
 
     # Detect and refine the stick line
-    result_img, refined_line = detect_and_refine_stick(image, binary_k_channel)
+    result_img, start_point, end_point = detect_and_refine_stick(image, binary_k_channel)
 
-    return result_img, refined_line
+    return result_img, start_point, end_point
 
 # def detect_stick(image, binary_k_channel):
 #     """
