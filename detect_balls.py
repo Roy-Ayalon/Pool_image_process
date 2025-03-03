@@ -103,6 +103,7 @@ def detect_pool_balls(image, board_contour):
     
     # 3. Hough Circle detection
     #    Adjust these params to fit your image size and ball sizes
+    #! changes, work with MAC
     circles = cv2.HoughCircles(
         gray,
         cv2.HOUGH_GRADIENT,
@@ -174,3 +175,38 @@ def detect_pool_balls(image, board_contour):
 
     return annotated, balls_info, ball_mask, contour_balls, binary
 
+
+
+def detect_white_ball(frame, board_contour, min_radius=10, max_radius=25):
+    """Detects the white cue ball on the pool table by selecting the largest detected white ball."""
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    
+    # Define HSV range for white color (tuned for typical lighting conditions)
+    lower_white = np.array([0, 0, 200], dtype=np.uint8)
+    upper_white = np.array([180, 50, 255], dtype=np.uint8)
+    mask_white = cv2.inRange(hsv, lower_white, upper_white)
+    
+    # Mask only inside the board
+    mask = np.zeros_like(mask_white)
+    cv2.drawContours(mask, [board_contour], -1, 255, -1)
+    mask_white = cv2.bitwise_and(mask_white, mask_white, mask=mask)
+    
+    # Find contours of possible white balls
+    contours, _ = cv2.findContours(mask_white, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    largest_radius = 0
+    largest_ball = None
+    
+    for cnt in contours:
+        (x, y), radius = cv2.minEnclosingCircle(cnt)
+        if min_radius <= radius <= max_radius and radius > largest_radius:  # Select only the largest valid white ball
+            largest_radius = radius
+            largest_ball = (int(x), int(y), int(radius))
+    
+    # Draw only the largest detected white ball if within valid range
+    if largest_ball:
+        x, y, radius = largest_ball
+        cv2.circle(frame, (x, y), radius, (0, 0, 255), 2)  # Draw white ball in red
+        cv2.putText(frame, "White Ball", (x - 10, y - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+    
+    return frame, largest_ball
