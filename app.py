@@ -4,7 +4,7 @@ from detect_board import detect_board
 from detect_holes import detecet_holes
 from detect_stick import detect_stick
 from table_start import table_start
-from trajectory import plot_trajectory
+from trajectory import trajectory
 import matplotlib.pyplot as plt
 from stick_new import highlight_color
 import numpy as np
@@ -26,17 +26,12 @@ def capture_and_process_frame(cap, board_contour, binary_image):
     binary_image_2 = binary_image + binary_balls
     #holes_contours = detecet_holes(frame, board_contour)
     binary_stick, start_point, end_point = detect_stick(frame, binary_image)
-    #draw the line of detect stick
-    print(start_point, end_point)
-    #cv2.line(frame, line[0], line[1], (0, 255, 0))
 
-
-
-    #plot_trajectory(frame, line, holes_contours, board_contour, balls_info)
-    binary_image_2 = binary_image_2 + binary_stick
+    stick_line = (start_point, end_point)
+    trajectory(frame, stick_line, board_contour, balls_info)
 
     # Apply color detection (detects and highlights specific color in frame)
-    frame, color_mask = highlight_color(frame, board_contour, target_bgr=(49, 74, 82))
+    #frame, color_mask = highlight_color(frame, board_contour, target_bgr=(49, 74, 82))
                
     # Draw the detected objects on the frame
     if board_contour is not None:
