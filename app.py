@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 board_contour = None
 
-def capture_and_process_frame(cap, board_contour, binary_image):
+def capture_and_process_frame(cap, board_contour, black_image, binary_mask_inner):
     """Capture a single frame, apply ball detection, and return the processed frame."""
     ret, frame = cap.read()
     if not ret:
@@ -20,14 +20,14 @@ def capture_and_process_frame(cap, board_contour, binary_image):
         
 
     # Unpack all returned values correctly; ensure your detect_pool_balls signature matches this unpacking.
-    annotated, balls_info, ball_mask, balls_contour, binary_balls = detect_pool_balls(frame, board_contour)
-    binary_image_2 = binary_image + binary_balls
+    annotated, balls_info, ball_mask, balls_contour, black_balls = detect_pool_balls(frame, board_contour)
+    black_image_2 = black_image + black_balls
     #holes_contours = detecet_holes(frame, board_contour)
-    binary_stick, line = detect_stick(frame, binary_image)
+    black_stick, line = detect_stick(frame, binary_mask_inner)
     #plot_trajectory(frame, line, holes_contours, board_contour, balls_info)
-    binary_image_2 = binary_image_2 + binary_stick
+    black_image_2 = black_image_2 + black_stick
 
-    plt.imshow(binary_image_2, cmap="gray")  # Show as grayscale
+    plt.imshow(black_image_2, cmap="gray")  # Show as grayscale
     plt.axis("off")  # Hide axes
     plt.show()
 
@@ -67,9 +67,9 @@ def capture_and_process_frame(cap, board_contour, binary_image):
 def display_live_video(cap):
     """Continuously capture, process, and display video frames."""
     ret, frame = cap.read()
-    board_contour, binary_image = detect_board(frame)
+    board_contour, black_image, binary_mask_inner = detect_board(frame)
     while True:
-        processed_frame = capture_and_process_frame(cap, board_contour, binary_image)
+        processed_frame = capture_and_process_frame(cap, board_contour, black_image, binary_mask_inner)
         if processed_frame is None:
             break  # If frame capture fails, exit the loop
 

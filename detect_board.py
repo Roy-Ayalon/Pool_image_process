@@ -61,7 +61,7 @@ def detect_board(frame, debug=False):
         #cv2.imshow("All Contours", all_contours_img)
         #cv2.waitKey(0)
 
-    return largest_contour, black_image
+    return largest_contour, black_image, binary_mask
 
 def find_hole_centers(holes_contours):
     """
