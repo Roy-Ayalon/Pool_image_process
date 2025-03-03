@@ -202,6 +202,7 @@ def detect_white_ball(frame, board_contour, min_radius=10, max_radius=25):
         cv2.putText(frame, "White Ball", (x - 10, y - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
     
+
     return frame, largest_ball
 
 def main():
@@ -243,5 +244,5 @@ def main():
     cap.release()
     cv2.destroyAllWindows()
 
-if __name__ == "__main__":
-    main()
+
+
