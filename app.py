@@ -27,9 +27,9 @@ def capture_and_process_frame(cap, board_contour, black_image, binary_mask_inner
     #plot_trajectory(frame, line, holes_contours, board_contour, balls_info)
     black_image_2 = black_image_2 + black_stick
 
-    plt.imshow(black_image_2, cmap="gray")  # Show as grayscale
-    plt.axis("off")  # Hide axes
-    plt.show()
+    # plt.imshow(black_image_2, cmap="gray")  # Show as grayscale
+    # plt.axis("off")  # Hide axes
+    # plt.show()
 
     # show type of balls_contour
     # print(type(balls_contour[0]))
