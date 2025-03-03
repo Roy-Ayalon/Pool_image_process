@@ -10,7 +10,7 @@ def detect_stick(image, mask):
         image_proc = image.copy()
         # Create a processed image where the masked areas have a specific color
         replacement_color = np.array([100, 100, 100], dtype=np.uint8)  # Color for masked areas
-        image_proc = image_proc * mask_2[..., None] + replacement_color * (mask_2[..., None])
+        image_proc = image_proc * mask_2 + replacement_color * (mask_2)
         image = image.copy() + image_proc
         image_rgb = image.astype(float) / 255.0
         K = 1 - np.max(image_rgb, axis=2)
@@ -87,6 +87,8 @@ def detect_stick(image, mask):
         """
         Detect the stick line and refine its endpoints based on the binary mask.
         """
+
+        result_img = np.zeros_like(image)
         # Edge detection
         edges = cv2.Canny(binary_k_channel, 150, 250)
 
@@ -95,7 +97,7 @@ def detect_stick(image, mask):
 
         if line_segments is None:
             print("No lines detected.")
-            return image, None
+            return result_img, None
 
         # Find the thickest line
         thickest_line = None
@@ -114,28 +116,28 @@ def detect_stick(image, mask):
 
         if not thickest_line or not thickest_line_2:
             print("No valid line found.")
-            return image, None
+            return result_img, None
 
         # Refine the line by finding exact start and end points in the binary mask
-        #start_point_1, end_point_1 = refine_stick_line(thickest_line, binary_k_channel)
-        #start_point_2, end_point_2 = refine_stick_line(thickest_line_2, binary_k_channel)
+        start_point_1, end_point_1 = refine_stick_line(thickest_line, binary_k_channel)
+        start_point_2, end_point_2 = refine_stick_line(thickest_line_2, binary_k_channel)
 
-        start_point_1 = (thickest_line[0], thickest_line[1])
-        end_point_1 = (thickest_line[2], thickest_line[3])
-        start_point_2 = (thickest_line_2[0], thickest_line_2[1])
-        end_point_2 = (thickest_line_2[2], thickest_line_2[3])
+        #start_point_1 = (thickest_line[0], thickest_line[1])
+        #end_point_1 = (thickest_line[2], thickest_line[3])
+        #start_point_2 = (thickest_line_2[0], thickest_line_2[1])
+        #end_point_2 = (thickest_line_2[2], thickest_line_2[3])
 
-        x_start_mean = (start_point_1[0] + start_point_2[0])//2
-        y_start_mean = (start_point_1[1] + start_point_2[1])//2
-        x_end_mean = (end_point_1[0] + end_point_2[0])//2
-        y_end_mean = (end_point_1[1] + end_point_2[1])//2
-        start_point = (x_start_mean, y_start_mean)
-        end_point = (x_end_mean, y_end_mean)
+        #x_start_mean = (start_point_1[0] + start_point_2[0])//2
+        #y_start_mean = (start_point_1[1] + start_point_2[1])//2
+        #x_end_mean = (end_point_1[0] + end_point_2[0])//2
+        #y_end_mean = (end_point_1[1] + end_point_2[1])//2
+        start_point = (start_point_1, start_point_2)
+        end_point = (end_point_1, end_point_2)
 
         # Draw the refined line on the original image
-        result_img = image.copy()
         if start_point and end_point:
-            cv2.line(result_img, start_point, end_point, (0, 255, 0), thickness=3)  # Green line
+            cv2.line(result_img, start_point[0], end_point[0], (0, 0, 255), thickness=3)  # Blue
+            cv2.line(result_img, start_point[1], end_point[1], (0, 0, 255), thickness=3)
         else:
             print("Could not refine the stick line.")
 
@@ -150,7 +152,7 @@ def detect_stick(image, mask):
     # Detect and refine the stick line
     result_img, refined_line = detect_and_refine_stick(image, binary_k_channel)
 
-    return refined_line
+    return result_img, refined_line
 
 # def detect_stick(image, binary_k_channel):
 #     """

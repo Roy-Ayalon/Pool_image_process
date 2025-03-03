@@ -19,16 +19,17 @@ def detect_board(frame, debug=False):
         cv2.waitKey(0)
 
     # Threshold based on the LAB A channel
-    range_min = 40
-    range_max = 90
+    #range_min = 30
+    #range_max = 80
+    threshold = 70
     hist, bins = np.histogram(A_normalized.flatten(), bins=256, range=(0, 255))
-    #max_x = np.argmax(hist[:threshold])
-    #threshold_x = 17
-    #binary_mask = np.where((A_normalized >= (max_x - threshold_x)) & 
-     #                      (A_normalized <= (max_x + threshold_x)), 
-     #                      255, 0).astype(np.uint8)
+    max_x = np.argmax(hist[:threshold])
+    threshold_x = 25
+    binary_mask = np.where((A_normalized >= (max_x - threshold_x)) & 
+                           (A_normalized <= (max_x + threshold_x)), 
+                           255, 0).astype(np.uint8)
     
-    binary_mask = cv2.inRange(A_normalized, range_min, range_max)
+    #binary_mask = cv2.inRange(A_normalized, range_min, range_max)
 
     # show histogram
     if debug:
@@ -51,17 +52,16 @@ def detect_board(frame, debug=False):
 
     if debug:
         visualized_image = frame.copy()
-        cv2.drawContours(visualized_image, [largest_contour], -1, (0, 255, 0), 2)
-        cv2.imshow("Largest Contour", visualized_image)
-        cv2.waitKey(0)
+    black_image = np.zeros_like(frame) #### update
+    cv2.drawContours(black_image, [largest_contour], -1, (0, 255, 0), 2) ## update
         
         # Optionally display all contours
-        all_contours_img = frame.copy()
-        cv2.drawContours(all_contours_img, contours, -1, (255, 0, 0), 2)
-        cv2.imshow("All Contours", all_contours_img)
-        cv2.waitKey(0)
+        #all_contours_img = frame.copy()
+        #cv2.drawContours(all_contours_img, contours, -1, (255, 0, 0), 2)
+        #cv2.imshow("All Contours", all_contours_img)
+        #cv2.waitKey(0)
 
-    return largest_contour
+    return largest_contour, black_image
 
 def find_hole_centers(holes_contours):
     """

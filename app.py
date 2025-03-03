@@ -5,24 +5,31 @@ from detect_holes import detecet_holes
 from detect_stick import detect_stick
 from table_start import table_start
 from trajectory import plot_trajectory
+import matplotlib.pyplot as plt
 
 board_contour = None
 
-def capture_and_process_frame(cap, mask_for_stick):
+def capture_and_process_frame(cap, board_contour, binary_image):
     """Capture a single frame, apply ball detection, and return the processed frame."""
-    global board_contour
     ret, frame = cap.read()
     if not ret:
         print("Failed to capture frame.")
         return None
-    # detect board only once
-    if board_contour is None:
-        board_contour = detect_board(frame)
+    # Apply Gaussian Blur
+    frame = cv2.GaussianBlur(frame, (5, 5), 0)  # (5, 5) is the kernel size, adjust it
+        
+
     # Unpack all returned values correctly; ensure your detect_pool_balls signature matches this unpacking.
-    annotated, balls_info, ball_mask, balls_contour = detect_pool_balls(frame, board_contour)
-    holes_contours = detecet_holes(frame, board_contour)
-    line = detect_stick(frame, mask_for_stick)
+    annotated, balls_info, ball_mask, balls_contour, binary_balls = detect_pool_balls(frame, board_contour)
+    binary_image_2 = binary_image + binary_balls
+    #holes_contours = detecet_holes(frame, board_contour)
+    binary_stick, line = detect_stick(frame, binary_image)
     #plot_trajectory(frame, line, holes_contours, board_contour, balls_info)
+    binary_image_2 = binary_image_2 + binary_stick
+
+    plt.imshow(binary_image_2, cmap="gray")  # Show as grayscale
+    plt.axis("off")  # Hide axes
+    plt.show()
 
     # show type of balls_contour
     # print(type(balls_contour[0]))
@@ -33,8 +40,8 @@ def capture_and_process_frame(cap, mask_for_stick):
     # Draw the detected objects on the frame
     if board_contour is not None:
         cv2.drawContours(frame, [board_contour], -1, (0, 255, 0), thickness=2)
-    if holes_contours:
-        cv2.drawContours(frame, holes_contours, -1, (0, 255, 0), thickness=2)
+    #if holes_contours:
+    #    cv2.drawContours(frame, holes_contours, -1, (0, 255, 0), thickness=2)
     # Check if balls_contour is valid and non-empty
     if balls_contour is not None and len(balls_contour) > 0:
         for ball_info in balls_info:
@@ -43,26 +50,26 @@ def capture_and_process_frame(cap, mask_for_stick):
             cv2.putText(frame, ball_label, (x - r, y - r - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
 
 
-    # Assuming detect_stick returns a tuple/list of two points, each being (x, y)
-    if line and isinstance(line, (list, tuple)) and len(line) == 2:
-        pt1, pt2 = line
-        # Ensure pt1 and pt2 are sequences of numbers with length 2
-        if (hasattr(pt1, "__len__") and len(pt1) == 2 and 
-            hasattr(pt2, "__len__") and len(pt2) == 2):
-            cv2.line(frame, pt1, pt2, (0, 0, 255), thickness=3)
-        else:
-            print("Line points are not in the correct format:", line)
-    else:
-        print("No valid line detected or line is not in expected format.")
+    # # Assuming detect_stick returns a tuple/list of two points, each being (x, y)
+    # if line and isinstance(line, (list, tuple)) and len(line) == 2:
+    #     pt1, pt2 = line
+    #     # Ensure pt1 and pt2 are sequences of numbers with length 2
+    #     if (hasattr(pt1, "__len__") and len(pt1) == 2 and 
+    #         hasattr(pt2, "__len__") and len(pt2) == 2):
+    #         cv2.line(frame, pt1, pt2, (0, 0, 255), thickness=3)
+    #     else:
+    #         print("Line points are not in the correct format:", line)
+    # else:
+    #     print("No valid line detected or line is not in expected format.")
 
     return frame
 
 def display_live_video(cap):
     """Continuously capture, process, and display video frames."""
     ret, frame = cap.read()
-    mask_for_stick = table_start(frame, 180)
+    board_contour, binary_image = detect_board(frame)
     while True:
-        processed_frame = capture_and_process_frame(cap, mask_for_stick)
+        processed_frame = capture_and_process_frame(cap, board_contour, binary_image)
         if processed_frame is None:
             break  # If frame capture fails, exit the loop
 
