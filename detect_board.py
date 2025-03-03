@@ -9,6 +9,11 @@ from detect_holes import detecet_holes
 import matplotlib.pyplot as plt
 
 def detect_board(frame, debug=False):
+    """
+    Detect the board contour from a frame using LAB color space and adaptive thresholding.
+    Returns:
+        Largest contour and a binary mask of the board.
+    """
     # Convert the image to LAB color space and normalize the A channel
     lab_image = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
     L, A, B = cv2.split(lab_image)
@@ -18,25 +23,18 @@ def detect_board(frame, debug=False):
         cv2.imshow("Normalized A Channel", A_normalized)
         cv2.waitKey(0)
 
-    # Threshold based on the LAB A channel
-    #range_min = 30
-    #range_max = 80
-    threshold = 45
+    # Compute histogram and determine adaptive threshold
+    threshold = 70
     hist, bins = np.histogram(A_normalized.flatten(), bins=256, range=(0, 255))
     max_x = np.argmax(hist[:threshold])
     threshold_x = 25
     binary_mask = np.where((A_normalized >= (max_x - threshold_x)) & 
                            (A_normalized <= (max_x + threshold_x)), 
                            255, 0).astype(np.uint8)
-    
-    #binary_mask = cv2.inRange(A_normalized, range_min, range_max)
 
-    # show histogram
     if debug:
         plt.plot(hist)
         plt.show()
-
-    if debug:
         cv2.imshow("Binary Mask", binary_mask)
         cv2.waitKey(0)
 
@@ -46,22 +44,15 @@ def detect_board(frame, debug=False):
     if not contours:
         if debug:
             print("No contours found.")
-        return None
+        return None, None
 
     largest_contour = max(contours, key=cv2.contourArea)
-
-    if debug:
-        visualized_image = frame.copy()
-    black_image = np.zeros_like(frame) #### update
-    cv2.drawContours(black_image, [largest_contour], -1, (0, 255, 0), 2) ## update
-        
-        # Optionally display all contours
-        #all_contours_img = frame.copy()
-        #cv2.drawContours(all_contours_img, contours, -1, (255, 0, 0), 2)
-        #cv2.imshow("All Contours", all_contours_img)
-        #cv2.waitKey(0)
-
-    return largest_contour, black_image
+    
+    # Create a black image to draw the detected board
+    black_image = np.zeros_like(frame)
+    cv2.drawContours(black_image, [largest_contour], -1, (0, 255, 0), 2)
+    
+    return largest_contour, black_image, binary_mask
 
 def find_hole_centers(holes_contours):
     """

@@ -1,5 +1,9 @@
 import cv2
 import numpy as np
+from matplotlib import pyplot as plt
+
+import cv2
+import numpy as np
 
 # -------------------------------------------------------------------------
 # 1) Color -> Ball number map (based on standard 8-ball pool)
@@ -209,4 +213,47 @@ def detect_white_ball(frame, board_contour, min_radius=10, max_radius=25):
         cv2.putText(frame, "White Ball", (x - 10, y - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
     
+
     return frame, largest_ball
+
+def main():
+    cap = cv2.VideoCapture(0)  # Adjust camera index if needed
+    if not cap.isOpened():
+        print("Error opening camera")
+        return
+
+    # Capture an initial frame for ROI selection.
+    ret, frame = cap.read()
+    if not ret:
+        print("Error reading from camera")
+        return
+
+    # Select ROI covering the tip of the stick to determine its color.
+    lower_color, upper_color = select_roi_and_get_color(frame)
+
+    print("Starting stick detection. Press ESC to exit.")
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        # Convert frame to HSV and generate a binary mask for the selected color.
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        mask_hsv = cv2.inRange(hsv, lower_color, upper_color)
+
+        # Pass the original frame and the HSV mask into the stick detector.
+        result_img, refined_line = detect_stick(frame, mask_hsv)
+
+        # Display both the original frame and the result from stick detection.
+        cv2.imshow("Original Frame", frame)
+        cv2.imshow("Stick Detection", result_img)
+
+        key = cv2.waitKey(30) & 0xFF
+        if key == 27:  # Press ESC to exit.
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+

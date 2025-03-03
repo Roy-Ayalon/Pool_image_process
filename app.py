@@ -1,4 +1,7 @@
 import cv2
+import numpy as np
+
+from detect_tip import find_largest_red_cluster, fit_stick_line
 from detect_balls import detect_pool_balls
 from detect_board import detect_board
 from detect_holes import detecet_holes
@@ -9,90 +12,136 @@ import matplotlib.pyplot as plt
 from detect_tip import stick
 import numpy as np
 
-board_contour = None
-previous_white_ball_center = None
-
-def capture_and_process_frame(cap, board_contour, binary_image, binary_mask):
-    """Capture a single frame, apply ball detection, and return the processed frame."""
-    ret, frame = cap.read()
-    if not ret:
-        print("Failed to capture frame.")
-        return None
-    # Apply Gaussian Blur
-    frame = cv2.GaussianBlur(frame, (5, 5), 0)  # (5, 5) is the kernel size, adjust it
-        
-
-    # Unpack all returned values correctly; ensure your detect_pool_balls signature matches this unpacking.
-    annotated, balls_info, ball_mask, balls_contour, binary_balls = detect_pool_balls(frame, board_contour)
-    binary_image_2 = binary_image + binary_balls
-    #holes_contours = detecet_holes(frame, board_contour)
-    
-    stick1 = stick(frame, binary_mask)
-    print(stick1)
-    if stick(frame, binary_mask) is not None:
-        start_point, end_point = stick(frame, binary_mask)
-
-    if start_point is not None & end_point is not None:
-        stick_line = (start_point, end_point)
-        trajectory(frame, stick_line, board_contour, balls_info)
-
-    # Apply color detection (detects and highlights specific color in frame)
-    #frame, color_mask = highlight_color(frame, board_contour, target_bgr=(49, 74, 82))
-               
-    # Draw the detected objects on the frame
-    if board_contour is not None:
-        cv2.drawContours(frame, [board_contour], -1, (0, 255, 0), thickness=2)
-    #if holes_contours:
-    #    cv2.drawContours(frame, holes_contours, -1, (0, 255, 0), thickness=2)
-    # Check if balls_contour is valid and non-empty
-    if balls_contour is not None and len(balls_contour) > 0:
-        for ball_info in balls_info:
-            x, y, r, ball_label, _ = ball_info
-            cv2.circle(frame, (x, y), r, (255, 0, 0), 2)
-            cv2.putText(frame, ball_label, (x - r, y - r - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
-
-
-    # # Assuming detect_stick returns a tuple/list of two points, each being (x, y)
-    # if line and isinstance(line, (list, tuple)) and len(line) == 2:
-    #     pt1, pt2 = line
-    #     # Ensure pt1 and pt2 are sequences of numbers with length 2
-    #     if (hasattr(pt1, "__len__") and len(pt1) == 2 and 
-    #         hasattr(pt2, "__len__") and len(pt2) == 2):
-    #         cv2.line(frame, pt1, pt2, (0, 0, 255), thickness=3)
-    #     else:
-    #         print("Line points are not in the correct format:", line)
-    # else:
-    #     print("No valid line detected or line is not in expected format.")
-
-    return frame
-
-def display_live_video(cap):
-    """Continuously capture, process, and display video frames."""
-    ret, frame = cap.read()
-    board_contour, binary_image, binary_mask = detect_board(frame)
-    while True:
-        processed_frame = capture_and_process_frame(cap, board_contour, binary_image, binary_mask)
-        if processed_frame is None:
-            break  # If frame capture fails, exit the loop
-
-        cv2.imshow('Live Video', processed_frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):  # Wait for 33 ms and check for 'q' to quit
-            cv2.waitKey(1)
-            cv2.destroyAllWindows()
-            break
-    #cv2.destroyAllWindows()
-        cv2.waitKey(1)
-
 def main():
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
         print("Cannot open camera")
         return
 
-    try:
-        display_live_video(cap)
-    finally:
-        cap.release()  # Ensure the camera is released properly
+    # Modes: idle, board_captured, mask (balls detected), game.
+    mode = "idle"
+    board_contour = None
+    binary_image = None  # <-- This is our board mask from detect_board()
+
+    print("Press 'b' to detect board, 'a' to detect balls on table, 's' to start game, 'q' to quit.")
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("Failed to capture frame.")
+            break
+
+        # Preprocess frame with a blur
+        frame_blurred = cv2.GaussianBlur(frame, (5, 5), 0)
+        display_frame = frame.copy()
+
+        if mode == "idle":
+            cv2.putText(display_frame, "Idle Mode: Press 'b' to detect board", (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            cv2.imshow("Live Video", display_frame)
+
+        elif mode == "board_captured":
+            if board_contour is not None:
+                # board_contour is just points we can draw to visualize the board
+                cv2.drawContours(display_frame, [board_contour], -1, (0, 0, 255), 2)
+            cv2.putText(display_frame, "Board Captured: Press 'a' to detect balls", (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            cv2.imshow("Live Video", display_frame)
+
+        elif mode == "mask":
+            # Detect balls and draw red circles on live frame.
+            annotated, balls_info, ball_mask, balls_contour, binary_balls = detect_pool_balls(frame_blurred, board_contour)
+            
+            # Visualize board contour
+            if board_contour is not None:
+                cv2.drawContours(display_frame, [board_contour], -1, (0, 0, 255), 2)
+            
+            # Visualize balls
+            if balls_contour is not None and len(balls_contour) > 0:
+                for ball_info in balls_info:
+                    x, y, r, ball_label, _ = ball_info
+                    cv2.circle(display_frame, (x, y), r, (0, 0, 255), 2)
+                    cv2.putText(display_frame, ball_label, (x - r, y - r - 5),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+
+            cv2.putText(display_frame, "Balls Detected: Press 's' to start game", (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            cv2.imshow("Live Video", display_frame)
+
+        elif mode == "game":
+            # Re-detect balls (or track them) in game mode
+            annotated, balls_info, ball_mask, balls_contour, binary_balls = detect_pool_balls(frame_blurred, board_contour)
+            
+            # Visualize board contour
+            if board_contour is not None:
+                cv2.drawContours(display_frame, [board_contour], -1, (0, 0, 255), 2)
+            
+            # Visualize balls
+            if balls_contour is not None and len(balls_contour) > 0:
+                for ball_info in balls_info:
+                    x, y, r, ball_label, _ = ball_info
+                    cv2.circle(display_frame, (x, y), r, (0, 0, 255), 2)
+                    cv2.putText(display_frame, ball_label, (x - r, y - r - 5),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+
+            # --- Tip Detection Code ---
+            # Static HSV thresholds
+            static_lower = np.array([5, 100, 80])
+            static_upper = np.array([45, 170, 110])
+            
+            # Convert current frame to HSV and threshold
+            hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+            tip_mask = cv2.inRange(hsv, static_lower, static_upper)
+            
+            # Use the actual binary mask from detect_board(), not board_contour
+            if binary_mask is not None:
+                board_mask = binary_mask.copy()
+                
+                # Make sure shapes match
+                if board_mask.shape != tip_mask.shape:
+                    board_mask = cv2.resize(board_mask, (tip_mask.shape[1], tip_mask.shape[0]),
+                                            interpolation=cv2.INTER_NEAREST)
+                # Ensure uint8
+                if board_mask.dtype != np.uint8:
+                    board_mask = board_mask.astype(np.uint8)
+                
+                # Restrict the tip detection to the board region
+                tip_mask_board = cv2.bitwise_and(tip_mask, tip_mask, mask=board_mask)
+                
+                # Find the largest red cluster
+                largest_tip_cluster = find_largest_red_cluster(tip_mask_board)
+                if largest_tip_cluster is not None:
+                    tip_pt1, tip_pt2 = fit_stick_line(largest_tip_cluster)
+                    if tip_pt1 is not None and tip_pt2 is not None:
+                        cv2.line(display_frame, tip_pt1, tip_pt2, (255, 0, 0), 3)
+            else:
+                # If we have no board mask, we can't do tip_mask_board
+                print("No board mask available; press 'b' to detect board first.")
+            # --- End Tip Detection Code ---
+            
+            cv2.putText(display_frame, "Game Mode: Press 'q' to quit", (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            cv2.imshow("Live Video", display_frame)
+
+        key = cv2.waitKey(33) & 0xFF
+        if key == ord('q'):
+            break
+        elif key == ord('b'):
+            # detect_board should return (board_contour, binary_image)
+            board_contour, binary_image, binary_mask = detect_board(frame)
+            print("Board detected and saved.")
+            mode = "board_captured"
+        elif key == ord('a'):
+            if mode == "board_captured":
+                print("Detecting balls on table...")
+                mode = "mask"
+        elif key == ord('s'):
+            if mode in ["mask", "board_captured"]:
+                print("Game started!")
+                mode = "game"
+
+    cv2.destroyAllWindows()
+    cap.release()
 
 if __name__ == '__main__':
     main()
