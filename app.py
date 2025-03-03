@@ -9,9 +9,8 @@ import matplotlib.pyplot as plt
 
 board_contour = None
 
-def capture_and_process_frame(cap, mask_for_stick):
+def capture_and_process_frame(cap, board_contour, binary_image):
     """Capture a single frame, apply ball detection, and return the processed frame."""
-    global board_contour
     ret, frame = cap.read()
     if not ret:
         print("Failed to capture frame.")
@@ -20,16 +19,15 @@ def capture_and_process_frame(cap, mask_for_stick):
     frame = cv2.GaussianBlur(frame, (5, 5), 0)  # (5, 5) is the kernel size, adjust it
         
 
-    board_contour, binary_image = detect_board(frame)
     # Unpack all returned values correctly; ensure your detect_pool_balls signature matches this unpacking.
     annotated, balls_info, ball_mask, balls_contour, binary_balls = detect_pool_balls(frame, board_contour)
-    binary_image = binary_image + binary_balls
+    binary_image_2 = binary_image + binary_balls
     #holes_contours = detecet_holes(frame, board_contour)
-    binary_stick, line = detect_stick(frame, mask_for_stick)
+    binary_stick, line = detect_stick(frame, binary_image)
     #plot_trajectory(frame, line, holes_contours, board_contour, balls_info)
-    binary_image = binary_image + binary_stick
+    binary_image_2 = binary_image_2 + binary_stick
 
-    plt.imshow(binary_image, cmap="gray")  # Show as grayscale
+    plt.imshow(binary_image_2, cmap="gray")  # Show as grayscale
     plt.axis("off")  # Hide axes
     plt.show()
 
@@ -52,31 +50,31 @@ def capture_and_process_frame(cap, mask_for_stick):
             cv2.putText(frame, ball_label, (x - r, y - r - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
 
 
-    # Assuming detect_stick returns a tuple/list of two points, each being (x, y)
-    if line and isinstance(line, (list, tuple)) and len(line) == 2:
-        pt1, pt2 = line
-        # Ensure pt1 and pt2 are sequences of numbers with length 2
-        if (hasattr(pt1, "__len__") and len(pt1) == 2 and 
-            hasattr(pt2, "__len__") and len(pt2) == 2):
-            cv2.line(frame, pt1, pt2, (0, 0, 255), thickness=3)
-        else:
-            print("Line points are not in the correct format:", line)
-    else:
-        print("No valid line detected or line is not in expected format.")
+    # # Assuming detect_stick returns a tuple/list of two points, each being (x, y)
+    # if line and isinstance(line, (list, tuple)) and len(line) == 2:
+    #     pt1, pt2 = line
+    #     # Ensure pt1 and pt2 are sequences of numbers with length 2
+    #     if (hasattr(pt1, "__len__") and len(pt1) == 2 and 
+    #         hasattr(pt2, "__len__") and len(pt2) == 2):
+    #         cv2.line(frame, pt1, pt2, (0, 0, 255), thickness=3)
+    #     else:
+    #         print("Line points are not in the correct format:", line)
+    # else:
+    #     print("No valid line detected or line is not in expected format.")
 
     return frame
 
 def display_live_video(cap):
     """Continuously capture, process, and display video frames."""
     ret, frame = cap.read()
-    trash, mask_for_stick = detect_board(frame)
+    board_contour, binary_image = detect_board(frame)
     while True:
-        processed_frame = capture_and_process_frame(cap, mask_for_stick)
+        processed_frame = capture_and_process_frame(cap, board_contour, binary_image)
         if processed_frame is None:
             break  # If frame capture fails, exit the loop
 
         cv2.imshow('Live Video', processed_frame)
-        if cv2.waitKey(1000) & 0xFF == ord('q'):  # Wait for 33 ms and check for 'q' to quit
+        if cv2.waitKey(33) & 0xFF == ord('q'):  # Wait for 33 ms and check for 'q' to quit
             break
     cv2.destroyAllWindows()
 
