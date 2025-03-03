@@ -6,12 +6,13 @@ from detect_stick import detect_stick
 from table_start import table_start
 from trajectory import trajectory
 import matplotlib.pyplot as plt
-from stick_new import highlight_color
+from detect_tip import stick
 import numpy as np
 
 board_contour = None
+previous_white_ball_center = None
 
-def capture_and_process_frame(cap, board_contour, binary_image):
+def capture_and_process_frame(cap, board_contour, binary_image, binary_mask):
     """Capture a single frame, apply ball detection, and return the processed frame."""
     ret, frame = cap.read()
     if not ret:
@@ -25,10 +26,15 @@ def capture_and_process_frame(cap, board_contour, binary_image):
     annotated, balls_info, ball_mask, balls_contour, binary_balls = detect_pool_balls(frame, board_contour)
     binary_image_2 = binary_image + binary_balls
     #holes_contours = detecet_holes(frame, board_contour)
-    binary_stick, start_point, end_point = detect_stick(frame, binary_image)
+    
+    stick1 = stick(frame, binary_mask)
+    print(stick1)
+    if stick(frame, binary_mask) is not None:
+        start_point, end_point = stick(frame, binary_mask)
 
-    stick_line = (start_point, end_point)
-    trajectory(frame, stick_line, board_contour, balls_info)
+    if start_point is not None & end_point is not None:
+        stick_line = (start_point, end_point)
+        trajectory(frame, stick_line, board_contour, balls_info)
 
     # Apply color detection (detects and highlights specific color in frame)
     #frame, color_mask = highlight_color(frame, board_contour, target_bgr=(49, 74, 82))
@@ -63,9 +69,9 @@ def capture_and_process_frame(cap, board_contour, binary_image):
 def display_live_video(cap):
     """Continuously capture, process, and display video frames."""
     ret, frame = cap.read()
-    board_contour, binary_image = detect_board(frame)
+    board_contour, binary_image, binary_mask = detect_board(frame)
     while True:
-        processed_frame = capture_and_process_frame(cap, board_contour, binary_image)
+        processed_frame = capture_and_process_frame(cap, board_contour, binary_image, binary_mask)
         if processed_frame is None:
             break  # If frame capture fails, exit the loop
 

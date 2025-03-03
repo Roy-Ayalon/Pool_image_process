@@ -483,6 +483,8 @@ def trajectory(frame, line, board_contour, balls_info):
         balls_mask = np.zeros((height, width), dtype=np.uint8)
 
         _, white_ball = detect_white_ball(frame, board_contour)
+        if white_ball is None:
+            return
         x, y, r = white_ball
         cv2.circle(balls_mask, (int(x), int(y)), int(r), 255, thickness=cv2.FILLED)
 

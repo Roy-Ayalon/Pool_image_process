@@ -188,3 +188,31 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+def stick(frame, board_mask):
+    # Use static thresholds for stick detection.
+    # (Static range: Hue: 5-45, Saturation: 100-170, Value: 80-110)
+    static_lower = np.array([5, 100, 80])
+    static_upper = np.array([45, 170, 110])
+    print("Using static thresholds: lower =", static_lower, "upper =", static_upper)
+
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    red_mask = cv2.inRange(hsv, static_lower, static_upper)
+
+    print(f"red mask:{red_mask}")
+    max_value = np.max(red_mask)
+    print(f"Max value of red mask: {red_mask}")
+    
+    # Limit the red mask to the board region.
+    red_mask_board = cv2.bitwise_and(red_mask, red_mask, mask=board_mask)
+    print(f"redmask:{red_mask_board}")
+    
+    largest_red_cluster = find_largest_red_cluster(red_mask_board)
+
+    print(f"largest cluster:{largest_red_cluster}")
+    
+    if largest_red_cluster is not None:
+        pt1, pt2 = fit_stick_line(largest_red_cluster)
+        print (pt1, pt2)
+        if pt1 is not None and pt2 is not None:
+            return pt1, pt2
