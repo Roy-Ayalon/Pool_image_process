@@ -1,9 +1,8 @@
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
+from scipy.stats import mode
 
-import cv2
-import numpy as np
 
 # -------------------------------------------------------------------------
 # 1) Color -> Ball number map (based on standard 8-ball pool)
@@ -28,16 +27,14 @@ COLOR_TO_BALL = {
 }
 
 # -------------------------------------------------------------------------
-# 2) Approximate HSV color ranges MIKI the KIng
-#    These are VERY approximate and must be tuned for your lighting.
-#    For example, "red" might appear around hue=0 or hue~170-180.
+# 2) Approximate HSV color ranges
 # -------------------------------------------------------------------------
 COLOR_RANGES = {
     "yellow":   ((16,  147,  224),  (36, 167, 244)),  # new
-    "brown":    ((0,   157,  150),  (40, 170, 175)),  # NOT GOOD
+    "brown":    ((0,   157,  150),  (40, 170, 175)),  # new
     "blue":     ((94,  226,  108),  (114, 246, 128)), # new
-    "red":      ((158,   195,  167),  (178, 215, 187)),  # new
-    "orange":   ((0,  173,  230),  (40, 210, 270)),  # NOT GOOD
+    "red":      ((158,   195,  167),  (179, 255, 187)),  # new
+    "orange":   ((0,  160,  230),  (40, 190, 270)),  # NOT GOOD
     "green":    ((75,  200,  85),  (95, 230, 115)),  # new
     "purple":   ((132, 125,  108),  (152, 145, 128)), # new
     "white":    ((60,   0,    230),  (100, 20, 255)),  # hue ~0-180, sat ~0-50, val ~200-255
@@ -46,33 +43,94 @@ COLOR_RANGES = {
 
 def classify_ball_color(hsv_ball_roi):
     """
-    Given an HSV image of a single ball,
+    Given an HSV image of a single ball (already cropped circularly),
     decide if it's black, white, or one of the colors in COLOR_RANGES.
-    Returns a string like "black", "white", or "blue", "red", etc.
-    """
-    # Compute average H, S, V
-    avg_h = np.mean(hsv_ball_roi[:,:,0])
-    avg_s = np.mean(hsv_ball_roi[:,:,1])
-    avg_v = np.mean(hsv_ball_roi[:,:,2])
+    Uses:
+      1) Average H, S, V (like your old approach),
+      2) Coverage approach (pixel count) to pick the best color.
 
-    # Otherwise, find which color range covers the most pixels
+    Returns:
+        A string (e.g., "black", "white", "blue", "red", etc.)
+    """
+
+    # 1) Compute average H, S, V (like the old function)
+    avg_h = np.mean(hsv_ball_roi[:, :, 0])
+    avg_s = np.mean(hsv_ball_roi[:, :, 1])
+    avg_v = np.mean(hsv_ball_roi[:, :, 2])
+
+    # 2) Among the color ranges, find which covers the most pixels
     best_color = None
     best_count = 0
-    h, w = hsv_ball_roi.shape[:2]
+
+    h, w = hsv_ball_roi.shape[:2]  # Not essential, but kept for reference
 
     for color_name, (lower, upper) in COLOR_RANGES.items():
         lower_np = np.array(lower, dtype=np.uint8)
         upper_np = np.array(upper, dtype=np.uint8)
 
+        # Make a mask for this color’s HSV range
         mask = cv2.inRange(hsv_ball_roi, lower_np, upper_np)
         count = cv2.countNonZero(mask)
-        if count > best_count:
-            best_count = count
-            best_color = color_name
 
+        # If this color covers more pixels than the current best, 
+        # we tentatively pick it as best_color...
+        if count > best_count:
+            best_color = color_name
+            best_count = count
+
+    # 3) Fallback: If no color or best_color is None, default to "white"
+    # (Your old code used “white” as fallback)
     if best_color is None:
-        return "white"  # fallback
+        return "white"
+
+    # 4) (Optional) We can also ensure avg H,S,V fits into that color range:
+    #    But since your old approach was correct “most of the time,”
+    #    we can just return best_color from coverage.
+    #
+    #    If you want to confirm that (avg_h, avg_s, avg_v) is in that color range:
+    #        lower, upper = COLOR_RANGES[best_color]
+    #        if not (lower[0] <= avg_h <= upper[0] and
+    #                lower[1] <= avg_s <= upper[1] and
+    #                lower[2] <= avg_v <= upper[2]):
+    #            best_color = "white"  # or "unknown"
+
     return best_color
+
+def extract_circular_roi(image, x, y, r):
+    """
+    Extracts a circular ROI from an image given the center (x, y) and radius (r).
+    
+    Parameters:
+        image (ndarray): Input image.
+        x (int): Center x-coordinate of the ball.
+        y (int): Center y-coordinate of the ball.
+        r (int): Radius of the ball.
+
+    Returns:
+        circular_roi (ndarray): Circular ROI with the background set to black.
+    """
+
+    # Define the bounding square for the ball
+    x1, x2 = max(0, x - r), min(image.shape[1], x + r)
+    y1, y2 = max(0, y - r), min(image.shape[0], y + r)
+
+    # Crop the square ROI
+    square_roi = image[y1:y2, x1:x2].copy()
+
+    # Create a circular mask **that fits the cropped region size**
+    mask = np.zeros(square_roi.shape[:2], dtype=np.uint8)
+    
+    # Compute the correct center of the mask
+    center_x = (x2 - x1) // 2
+    center_y = (y2 - y1) // 2
+
+    # Draw a filled circle mask
+    cv2.circle(mask, (center_x, center_y), min(r, center_x, center_y), 255, -1)
+
+    # Apply the mask to extract the circular region
+    circular_roi = cv2.bitwise_and(square_roi, square_roi, mask=mask)
+
+    return circular_roi
 
 def detect_pool_balls(image, board_contour):
     """
@@ -132,7 +190,7 @@ def detect_pool_balls(image, board_contour):
                 continue
 
             # 5. Extract ball ROI
-            ball_roi = image[y - r : y + r, x - r : x + r]
+            ball_roi = extract_circular_roi(image, x, y, r)
             hsv_roi = cv2.cvtColor(ball_roi, cv2.COLOR_BGR2HSV)
 
             # 6. Classify color
@@ -243,6 +301,3 @@ def main():
 
     cap.release()
     cv2.destroyAllWindows()
-
-
-
