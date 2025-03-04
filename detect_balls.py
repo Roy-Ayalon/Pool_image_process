@@ -32,13 +32,13 @@ COLOR_TO_BALL = {
 COLOR_RANGES = {
     "yellow":   ((16,  147,  224),  (36, 167, 244)),  # new
     "brown":    ((0,   157,  150),  (40, 170, 175)),  # new
-    "blue":     ((94,  226,  108),  (114, 246, 128)), # new
+    "blue":     ((80,  200,  108),  (114, 246, 170)), # new
     "red":      ((158,   195,  167),  (179, 255, 187)),  # new
-    "orange":   ((0,  160,  230),  (40, 190, 270)),  # NOT GOOD
+    "orange":   ((0,  160,  230),  (40, 210, 270)),  # NOT GOOD
     "green":    ((75,  200,  85),  (95, 230, 115)),  # new
-    "purple":   ((132, 125,  108),  (152, 145, 128)), # new
+    "purple":   ((128, 125,  100),  (158, 180, 170)), # new
     "white":    ((60,   0,    230),  (100, 20, 255)),  # hue ~0-180, sat ~0-50, val ~200-255
-    "black":    ((60,   160,    0),    (85, 190, 50))    # new
+    "black":    ((30,   120,    0),    (85, 190, 50))    # new
 }
 
 def classify_ball_color(hsv_ball_roi):
@@ -234,7 +234,7 @@ def detect_white_ball(frame, board_contour, min_radius=10, max_radius=25):
     
     # Define HSV range for white color (tuned for typical lighting conditions)
     lower_white = np.array([0, 0, 200], dtype=np.uint8)
-    upper_white = np.array([180, 50, 255], dtype=np.uint8)
+    upper_white = np.array([180, 150, 255], dtype=np.uint8)
     mask_white = cv2.inRange(hsv, lower_white, upper_white)
     
     # Mask only inside the board
@@ -263,41 +263,3 @@ def detect_white_ball(frame, board_contour, min_radius=10, max_radius=25):
 
     return frame, largest_ball
 
-def main():
-    cap = cv2.VideoCapture(0)  # Adjust camera index if needed
-    if not cap.isOpened():
-        print("Error opening camera")
-        return
-
-    # Capture an initial frame for ROI selection.
-    ret, frame = cap.read()
-    if not ret:
-        print("Error reading from camera")
-        return
-
-    # Select ROI covering the tip of the stick to determine its color.
-    lower_color, upper_color = select_roi_and_get_color(frame)
-
-    print("Starting stick detection. Press ESC to exit.")
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        # Convert frame to HSV and generate a binary mask for the selected color.
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        mask_hsv = cv2.inRange(hsv, lower_color, upper_color)
-
-        # Pass the original frame and the HSV mask into the stick detector.
-        result_img, refined_line = detect_stick(frame, mask_hsv)
-
-        # Display both the original frame and the result from stick detection.
-        cv2.imshow("Original Frame", frame)
-        cv2.imshow("Stick Detection", result_img)
-
-        key = cv2.waitKey(30) & 0xFF
-        if key == 27:  # Press ESC to exit.
-            break
-
-    cap.release()
-    cv2.destroyAllWindows()

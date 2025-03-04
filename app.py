@@ -1,13 +1,14 @@
 import cv2
 import numpy as np
 
-from detect_balls import detect_pool_balls
+from detect_balls import detect_pool_balls, detect_white_ball
 from detect_board import detect_board
 from detect_holes import detecet_holes
 from detect_stick import detect_stick
-from trajectory import plot_trajectory
+from trajectory import okay_to_shoot, compute_trajectory, extend_line
 import matplotlib.pyplot as plt
 from ball_panel import create_balls_panel
+
 
 # Global persistent dictionary for remaining balls.
 # Keys are ball numbers; values are (x, y, r, label, number) tuples.
@@ -95,6 +96,49 @@ def main():
             res_img, start_point, end_point = detect_stick(frame, binary_mask)
             if start_point is not None and end_point is not None:
                 cv2.line(display_frame, start_point, end_point, (255, 0, 0), 3)
+
+                # --- physics ---
+                line = (start_point, end_point)
+                _, white_ball = detect_white_ball(display_frame, board_contour)
+                if white_ball is not None:
+                    okay = okay_to_shoot(display_frame, line, white_ball, balls_info)
+                    # Display the text in the center of the frame
+                    overlay_text = "True" if okay else "False"
+                    text_color = (0, 255, 0) if okay else (0, 0, 255)  # Green for True, Red for False
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    font_scale = 1.5
+                    thickness = 3
+                    text_size = cv2.getTextSize(overlay_text, font, font_scale, thickness)[0]
+                    text_x = (frame.shape[1] - text_size[0]) // 2
+                    text_y = (frame.shape[0] + text_size[1]) // 2
+                    cv2.putText(display_frame, overlay_text, (text_x, text_y), font, font_scale, text_color, thickness)
+
+                    if okay:
+                        white_x, white_y, white_radius = white_ball
+                        white_center = (white_x, white_y)
+                        dir_unit, contact_point = compute_trajectory(white_center, white_radius, line)
+                        print(dir_unit, contact_point)
+
+                        step = 5  # Small step size for trajectory advancement
+                        current_point = np.array(contact_point, dtype=float)
+                        total_length = 0
+
+                        max_length = 1000
+                        while total_length < max_length:
+                            next_point = current_point + step * dir_unit
+                            
+                            # Check if the next point is still inside the board contour
+                            if cv2.pointPolygonTest(board_contour, (next_point[0], next_point[1]), False) < 0:
+                                break  # Stop drawing when exiting the board
+
+                            current_point = next_point
+                            total_length += step
+
+                        cv2.line(display_frame,
+                                (int(contact_point[0]), int(contact_point[1])),
+                                (int(current_point[0]), int(current_point[1])),
+                                color=(255, 255, 0), thickness=2)
+
             # --- End Stick Detection Code ---
             
             cv2.putText(display_frame, "Game Mode: Press 'q' to quit", (10, 30),
