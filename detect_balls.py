@@ -33,15 +33,15 @@ COLOR_TO_BALL = {
 #    For example, "red" might appear around hue=0 or hue~170-180.
 # -------------------------------------------------------------------------
 COLOR_RANGES = {
-    "yellow":   ((20,  220,  235),  (40, 240, 255)),  # hue ~30, sat ~230, val ~230
-    "brown":    ((0,   230,  120),  (20, 250, 140)),  # hue ~10, sat ~240, val ~130
-    "blue":     ((90,  170,  70),  (120, 210, 110)), # hue ~100-110, sat ~190, val ~90
-    "red":      ((0,   220,  120),  (10, 255, 160)),  # hue ~0-10, sat ~230, val ~140
-    "orange":   ((10,  230,  230),  (20, 255, 255)),  # hue ~15, sat ~240, val ~240
-    "green":    ((50,  190,  70),  (85, 210, 100)),  # hue ~60-70, sat ~200, val ~85
-    "purple":   ((150, 160,  120),  (175, 180, 150)), # hue ~140, sat ~150, val ~150
+    "yellow":   ((16,  147,  224),  (36, 167, 244)),  # new
+    "brown":    ((0,   157,  150),  (40, 170, 175)),  # NOT GOOD
+    "blue":     ((94,  226,  108),  (114, 246, 128)), # new
+    "red":      ((158,   195,  167),  (178, 215, 187)),  # new
+    "orange":   ((0,  173,  230),  (40, 210, 270)),  # NOT GOOD
+    "green":    ((75,  200,  85),  (95, 230, 115)),  # new
+    "purple":   ((132, 125,  108),  (152, 145, 128)), # new
     "white":    ((60,   0,    230),  (100, 20, 255)),  # hue ~0-180, sat ~0-50, val ~200-255
-    "black":    ((20,   115,    10),    (50, 135, 40))    # hue ~0-180, sat ~0-255, val ~0-30
+    "black":    ((60,   160,    0),    (85, 190, 50))    # new
 }
 
 def classify_ball_color(hsv_ball_roi):
@@ -115,7 +115,7 @@ def detect_pool_balls(image, board_contour):
         minDist=10,
         param1=50,
         param2=30,
-        minRadius=5,
+        minRadius=15,
         maxRadius=20
     )
 
@@ -141,7 +141,7 @@ def detect_pool_balls(image, board_contour):
         
             # Use the color name to determine if it's solid or striped
             ball_number = COLOR_TO_BALL[color_name]
-            ball_label  = f""
+            ball_label  = f"{color_name}"
 
             # 7. Save info
             balls_info.append((x, y, r, ball_label, ball_number))

@@ -9,8 +9,19 @@ from detect_stick import detect_stick
 from table_start import table_start
 from trajectory import plot_trajectory
 import matplotlib.pyplot as plt
+from ball_panel import create_balls_panel
+from four_lines import extract_table_edges_approx, extract_table_edges_min_area, draw_lines
+
+# Global persistent dictionary for remaining balls.
+# Keys are ball numbers; values are (x, y, r, label, number) tuples.
+remaining_balls = {}
+
+# Global point counter.
+points = 0
 
 def main():
+    global remaining_balls, points  # Declare these as global
+
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
         print("Cannot open camera")
@@ -42,6 +53,11 @@ def main():
             if board_contour is not None:
                 # board_contour is just points we can draw to visualize the board
                 cv2.drawContours(display_frame, [board_contour], -1, (0, 0, 255), 2)
+            
+            # --- drwaing 4 lines of the contour ---
+            #lines_approx = extract_table_edges_approx(board_contour)
+            lines_min_area = extract_table_edges_min_area(board_contour)    
+            draw_lines(display_frame, lines_min_area, color=(0,255,0))  
             cv2.putText(display_frame, "Board Captured: Press 'a' to detect balls", (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
             cv2.imshow("Live Video", display_frame)
@@ -81,7 +97,7 @@ def main():
                     cv2.circle(display_frame, (x, y), r, (0, 0, 255), 2)
                     cv2.putText(display_frame, ball_label, (x - r, y - r - 5),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-
+                    
             # --- Tip Detection Code ---
             # Static HSV thresholds
             static_lower = np.array([5, 100, 80])
@@ -119,7 +135,94 @@ def main():
             
             cv2.putText(display_frame, "Game Mode: Press 'q' to quit", (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-            cv2.imshow("Live Video", display_frame)
+            
+            # --- Update persistent remaining balls and score (by color only) ---
+            valid_colors = ["yellow", "blue", "red", "purple", "orange", "green", "brown", "black"]
+            max_counts = {"yellow": 2, "blue": 2, "red": 2, "purple": 2, "orange": 2, "green": 2, "brown": 2, "black": 1}
+
+            # Initialize remaining_balls if not already done.
+            if not remaining_balls:
+                remaining_balls = {color: [] for color in valid_colors}
+
+            # Build a dictionary of currently detected balls (ignoring the white ball).
+            current_detected = {color: [] for color in valid_colors}
+            for ball in balls_info:
+                # Each ball: (x, y, r, label, number)
+                x, y, r, label, number = ball
+                color_label = label.lower()
+                if color_label == "white" or color_label not in valid_colors:
+                    continue
+                current_detected[color_label].append(ball)
+
+            # Limit each color to its maximum allowed count.
+            for color in valid_colors:
+                if len(current_detected[color]) > max_counts[color]:
+                    current_detected[color] = current_detected[color][:max_counts[color]]
+
+            # Compute total counts.
+            prev_total = sum(len(remaining_balls[color]) for color in valid_colors)
+            current_total = sum(len(current_detected[color]) for color in valid_colors)
+            delta = prev_total - current_total  # Positive if balls went missing, negative if reappeared.
+            points += delta
+
+            # Update the persistent record.
+            for color in valid_colors:
+                remaining_balls[color] = current_detected[color]
+
+            # Compute total missing balls (expected total is 15).
+            total_missing = sum(max_counts[color] - len(remaining_balls[color]) for color in valid_colors)
+
+
+            # --- Check win/loss conditions ---
+            # Check win/loss conditions.
+            # If all 15 expected balls are pocketed, display "YOU WON"
+            if total_missing == 15:
+                h, w = display_frame.shape[:2]
+                cv2.putText(display_frame, "YOU WON", (w//2 - 150, h//2), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 255, 0), 4)
+                cv2.imshow("Live Video", display_frame)
+                key = cv2.waitKey(0) & 0xFF
+                if key == ord('w'):
+                    # Reset game state.
+                    points = 0
+                    remaining_balls = {color: [] for color in valid_colors}
+                    mode = "game"
+                    continue
+                if key == ord('q'):
+                    break
+                
+            # Else, if the black ball is missing (pocketed) but not all 15 are pocketed, you lose.
+            elif len(remaining_balls["black"]) == 0 and total_missing < 15:
+                h, w = display_frame.shape[:2]
+                cv2.putText(display_frame, "YOU LOSE", (w//2 - 150, h//2), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 0, 255), 4)
+                cv2.imshow("Live Video", display_frame)
+                key = cv2.waitKey(0) & 0xFF
+                if key == ord('l'):
+                    points = 0
+                    remaining_balls = {color: [] for color in valid_colors}
+                    mode = "game"
+                    continue
+                if key == ord('q'):
+                    break
+
+
+            # Display the current score on the frame.
+            cv2.putText(display_frame, f"Score: {points}", (10, 60),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+
+            # --- Create and display the balls panel ---
+            # Combine all currently detected balls (from all colors) into a single list.
+            present_balls = []
+            for color in valid_colors:
+                present_balls.extend(remaining_balls[color])
+            if present_balls:
+                h, w = display_frame.shape[:2]
+                panel = create_balls_panel(present_balls, w, panel_height=100)
+                combined_frame = np.vstack([display_frame, panel])
+                cv2.imshow("Live Video", combined_frame)
+            else:
+                cv2.imshow("Live Video", display_frame)
 
         key = cv2.waitKey(33) & 0xFF
         if key == ord('q'):
