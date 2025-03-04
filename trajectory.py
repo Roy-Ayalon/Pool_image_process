@@ -421,3 +421,170 @@ def plot_trajectory(frame, line, holes_contour, board_lines, board_contour, ball
 
     # If no intersections are found
     draw_text_on_frame("No intersections", color=(0, 255, 0))  # Green text
+
+def trajectory(frame, line, board_contour, balls_info, white_ball):
+    """
+    Plot the trajectory and determine the first object the line intersects.
+
+    Parameters:
+        frame (ndarray): The input image.
+        okay_to_shoot (bool): Whether it is okay to shoot.
+        line (list): A list of two points [(x1, y1), (x2, y2)] defining the stick.
+        holes_contour (list): Contour of the holes on the board.
+        board_contour (ndarray): Contour of the board without holes.
+        balls_info (list): List of (x, y, r) tuples for the balls on the table.
+
+    Returns:
+        None
+    """
+
+    def okay_to_shoot(frame, line, white_ball):
+        """
+        Determine if it is okay to shoot based on the line and ball positions, using balls_info.
+
+        Parameters:
+            frame (ndarray): The input image.
+            line (list): A list of two points [(x1, y1), (x2, y2)] defining the stick.
+            balls_info (list): List of tuples [(x, y, r), ...], where (x, y) is the center and r is the radius of each ball.
+
+        Returns:
+            bool: True if the line intersects with any ball, False otherwise.
+        """
+
+        # Validate input
+        if line is None or len(line) != 2:
+            return
+        if not balls_info or not isinstance(balls_info, list):
+            raise ValueError("balls_info must be a list of (x, y, r) tuples.")
+
+        # Extract the start and end points of the line
+        (x1, y1), (x2, y2) = line
+
+        # Get the image dimensions
+        height, width = frame.shape[:2]
+
+        # Create a blank mask for the line
+        line_mask = np.zeros((height, width), dtype=np.uint8)
+
+        # Extend the line across the image
+        line_length = max(width, height) * 2  # Large length to ensure extension
+        dx, dy = x2 - x1, y2 - y1
+        line_vector = np.array([dx, dy], dtype=float)
+        line_vector /= np.linalg.norm(line_vector)  # Normalize
+
+        # Calculate extended points
+        extended_start = (int(x1 - line_vector[0] * line_length), int(y1 - line_vector[1] * line_length))
+        extended_end = (int(x2 + line_vector[0] * line_length), int(y2 + line_vector[1] * line_length))
+
+        # Draw the extended line on the mask
+        cv2.line(line_mask, extended_start, extended_end, 255, thickness=5)
+
+        # Create a blank mask for the balls
+        balls_mask = np.zeros((height, width), dtype=np.uint8)
+
+        # Draw each ball as a filled circle on the balls mask
+        x, y, r = white_ball
+        cv2.circle(balls_mask, (int(x), int(y)), int(r), 255, thickness=cv2.FILLED)
+
+        # Check for intersection between the line and balls masks
+        intersection = cv2.bitwise_and(line_mask, balls_mask)
+        has_intersection = np.any(intersection)
+
+        # Overlay the result on the frame
+        overlay_text = "True" if has_intersection else "False"
+        text_color = (0, 255, 0) if has_intersection else (0, 0, 255)  # Green for True, Red for False
+
+        # Display the text in the center of the frame
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 1.5
+        thickness = 3
+        text_size = cv2.getTextSize(overlay_text, font, font_scale, thickness)[0]
+        text_x = (frame.shape[1] - text_size[0]) // 2
+        text_y = (frame.shape[0] + text_size[1]) // 2
+
+        cv2.putText(frame, overlay_text, (text_x, text_y), font, font_scale, text_color, thickness)
+
+        return has_intersection
+
+    # Helper function to draw text on the frame
+    def draw_text_on_frame(text, color=(0, 255, 0)):
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 1
+        thickness = 2
+        text_size = cv2.getTextSize(text, font, font_scale, thickness)[0]
+        text_x = (frame.shape[1] - text_size[0]) // 2
+        text_y = 50
+        cv2.putText(frame, text, (text_x, text_y), font, font_scale, color, thickness)
+
+    def plot_line(frame, white_center, white_radius, stick_line, board_contour, dash_length=20, color=(255, 255, 0), thickness=2):
+        """
+        Draw a dashed line from the white ball center to the board boundary in the direction
+        where the cue stick is hitting the white ball.
+        
+        Parameters:
+            frame (ndarray): The input image to draw on.
+            white_center (tuple): (x, y) coordinates of the white ball center.
+            white_radius (int): Radius of the white ball.
+            stick_line (list): Two points defining the cue stick line [(x1, y1), (x2, y2)].
+            board_contour (ndarray): Contour of the board.
+            dash_length (int): Length of each dash segment.
+            color (tuple): BGR color of the dashed line.
+            thickness (int): Thickness of the dashed line.
+        
+        Returns:
+            None
+        """
+        # Unpack the stick line points and convert them to numpy arrays (float type)
+        P1, P2 = stick_line
+        P1 = np.array(P1, dtype=float)
+        P2 = np.array(P2, dtype=float)
+        C = np.array(white_center, dtype=float)
+        
+        # Compute the projection of the white ball center onto the stick line.
+        line_vec = P2 - P1
+        line_len_sq = np.dot(line_vec, line_vec)
+        if line_len_sq == 0:
+            print("Invalid stick_line: zero length.")
+            return
+        t = np.dot(C - P1, line_vec) / line_len_sq
+        P_proj = P1 + t * line_vec
+        
+        # Compute the direction vector from the white ball center to the projection.
+        dir_vec = P_proj - C
+        norm = np.linalg.norm(dir_vec)
+        if norm == 0:
+            print("Stick line passes through white center, ambiguous direction.")
+            return
+        dir_unit = dir_vec / norm
+        
+        # Compute the contact point on the white ball's circumference.
+        contact_point = C + white_radius * dir_unit  # where the cue stick would hit the ball.
+        
+        # Now, draw a dashed line starting from the white ball center and moving in the computed direction.
+        current_point = C.copy()
+        while True:
+            next_point = current_point + dash_length * dir_unit
+            
+            # Check if the next_point is inside the board contour.
+            if cv2.pointPolygonTest(board_contour, (next_point[0], next_point[1]), False) < 0:
+                # If outside, stop drawing dashes.
+                break
+            
+            # Draw the dash segment.
+            cv2.line(frame,
+                    (int(current_point[0]), int(current_point[1])),
+                    (int(next_point[0]), int(next_point[1])),
+                    color, thickness)
+            
+            # Move current_point forward by dash_length plus a gap equal to dash_length.
+            current_point = next_point + dash_length * dir_unit
+        
+        # Optionally, draw the contact point for reference.
+        cv2.circle(frame, (int(contact_point[0]), int(contact_point[1])), 5, (0, 0, 255), -1)  # Red dot at contact point.
+
+    okay = okay_to_shoot(frame, line, white_ball)
+    if okay:
+        white_x, white_y, white_radius = white_ball
+        white_center = (white_x, white_y)
+        plot_line(frame, white_center, white_radius, line, board_contour)
+    return
