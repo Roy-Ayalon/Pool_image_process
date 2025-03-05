@@ -21,12 +21,10 @@ points = 0
 # Global variable to store the previous white ball center.
 previous_white_ball_center = None
 
-# counter for checks
-frame_counter = 0
-refresh = 15
+balls_info = None
 
 def main():
-    global remaining_balls, points, previous_white_ball_center,frame_counter, refresh # Declare globals
+    global remaining_balls, points, previous_white_ball_center, balls_info # Declare globals
 
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
@@ -64,7 +62,6 @@ def main():
             cv2.imshow("Live Video", display_frame)
 
         elif mode == "mask":
-            annotated, balls_info, ball_mask, balls_contour, binary_balls, white_ball = detect_pool_balls(frame_blurred, board_contour)
             annotated, balls_info, ball_mask, balls_contour, binary_balls, white_ball = detect_pool_balls(frame_blurred, board_contour)
             
             if board_contour is not None:
@@ -308,153 +305,6 @@ def main():
                                     current_point = next_point
                                     total_length += step
 
-                            # --- case 1 - hitting colored ball ---
-                            if intersecting_ball:
-                                trajectory_end = np.array(intersection_point, dtype=float)  # Stop at the ball
-
-                                # Draw the white ball's trajectory
-                                cv2.line(display_frame,
-                                        (int(contact_point[0]), int(contact_point[1])),
-                                        (int(trajectory_end[0]), int(trajectory_end[1])),
-                                        color=(255, 255, 0), thickness=4)
-                                
-                                # Draw the colored ball's trajectory
-                                print(f"Ball {intersecting_ball[3]} (color: {intersecting_ball[4]}) will be hit at {intersection_point}")
-
-                                # Draw impact point
-                                cv2.circle(display_frame, intersection_point, 5, (0, 0, 255), -1)  # Red dot for impact
-
-                                # Compute next trajectories
-                                new_white_dir, target_ball_dir = compute_next_trajectory(intersecting_ball, intersection_point, dir_unit)
-
-                                # --- Target Ball Trajectory (Magenta) ---
-                                current_point = np.array(intersection_point, dtype=float)
-                                total_length = 0
-
-                                while total_length < max_length:
-                                    next_point = current_point + step * target_ball_dir
-
-                                    # Stop if outside board contour
-                                    if cv2.pointPolygonTest(board_contour, (next_point[0], next_point[1]), False) < 0:
-                                        break
-
-                                    current_point = next_point
-                                    total_length += step
-
-                                # Draw the target ball's trajectory (Magenta)
-                                cv2.line(display_frame,
-                                        (int(intersection_point[0]), int(intersection_point[1])),
-                                        (int(current_point[0]), int(current_point[1])),
-                                        color=(255, 0, 255), thickness=4)
-
-                                # --- New White Ball Trajectory (Green) ---
-                                current_point = np.array(intersection_point, dtype=float)
-                                total_length = 0
-
-                                while total_length < max_length:
-                                    next_point = current_point + step * new_white_dir
-
-                                    # Stop if outside board contour
-                                    if cv2.pointPolygonTest(board_contour, (next_point[0], next_point[1]), False) < 0:
-                                        break
-
-                                    current_point = next_point
-                                    total_length += step
-
-                                # Draw the white ball's new trajectory (Green)
-                                cv2.line(display_frame,
-                                        (int(intersection_point[0]), int(intersection_point[1])),
-                                        (int(current_point[0]), int(current_point[1])),
-                                        color=(255, 255, 0), thickness=4)
-
-                            # --- case 2 - hitting a hole ---       
-                            elif hole_hit:
-                                total_length = 0
-                                max_length = 1000
-                                current_point = np.array(contact_point, dtype=float)
-                                while total_length < max_length:
-                                    next_point = current_point + step * dir_unit
-
-                                    # Check if the next point is still inside the board contour
-                                    if cv2.pointPolygonTest(board_contour, (next_point[0], next_point[1]), False) < 0:
-                                        break  # Stop drawing when exiting the board
-
-                                    current_point = next_point
-                                    total_length += step
-
-                                trajectory_end = current_point  # Stop at the board
-
-                                # Draw the white ball's trajectory (Yellow)
-                                cv2.line(display_frame,
-                                        (int(contact_point[0]), int(contact_point[1])),
-                                        (int(trajectory_end[0]), int(trajectory_end[1])),
-                                        color=(255, 255, 0), thickness=4)
-                            
-                            # --- case 3 - hitting the board edges ---
-                            elif board_hit:
-                                #cv2.circle(display_frame, board_hit_point, 5, (0, 0, 255), -1)  # Red dot for impact
-
-                                current_point = np.array(contact_point, dtype=float)
-                                while total_length < max_length:
-                                    next_point = current_point + step * dir_unit
-
-                                    # Check if the next point is still inside the board contour
-                                    if cv2.pointPolygonTest(board_contour, (next_point[0], next_point[1]), False) < 0:
-                                        break  # Stop drawing when exiting the board
-
-                                    current_point = next_point
-                                    total_length += step
-
-                                trajectory_end = current_point  # Stop at the board
-                                # Draw the white ball's trajectory (Yellow)
-                                cv2.line(display_frame,
-                                        (int(contact_point[0]), int(contact_point[1])),
-                                        (int(trajectory_end[0]), int(trajectory_end[1])),
-                                        color=(255, 255, 0), thickness=4)
-
-                                total_length = 0
-                                max_length = 1000
-                                current_point = np.array(board_hit_point, dtype=float)
-                                while total_length < max_length:
-                                    next_point = current_point + step * reflection_dir
-
-                                    # Check if the next point is still inside the board contour
-                                    if cv2.pointPolygonTest(board_contour, (next_point[0], next_point[1]), False) < 0:
-                                        break  # Stop drawing when exiting the board
-
-                                    current_point = next_point
-                                    total_length += step
-
-                                trajectory_end = current_point  # Stop at the board
-
-                                # Draw the white ball's trajectory (Yellow)
-                                cv2.line(display_frame,
-                                        (int(board_hit_point[0]), int(board_hit_point[1])),
-                                        (int(trajectory_end[0]), int(trajectory_end[1])),
-                                        color=(255, 255, 0), thickness=4)
-
-                            else:
-                                # If no ball is hit, continue to the board contour
-                                while total_length < max_length:
-                                    next_point = current_point + step * dir_unit
-
-                                    # Check if the next point is still inside the board contour
-                                    if cv2.pointPolygonTest(board_contour, (next_point[0], next_point[1]), False) < 0:
-                                        break  # Stop drawing when exiting the board
-
-                                    current_point = next_point
-                                    total_length += step
-
-                                trajectory_end = current_point  # Stop at the board
-
-                                # Draw the white ball's trajectory (Yellow)
-                                cv2.line(display_frame,
-                                        (int(contact_point[0]), int(contact_point[1])),
-                                        (int(trajectory_end[0]), int(trajectory_end[1])),
-                                        color=(255, 255, 0), thickness=4)
-   
-                                trajectory_end = current_point  # Stop at the board
-
                                 # Draw the white ball's trajectory (Yellow)
                                 cv2.line(display_frame,
                                         (int(contact_point[0]), int(contact_point[1])),
@@ -472,86 +322,44 @@ def main():
             text_x = (display_frame.shape[1] - text_width) // 2
             cv2.putText(display_frame, text, (text_x, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
-            cv2.imshow("Live Video", display_frame)
-            
-            # --- Update remaining balls and score ---
-            # valid_colors = ["yellow", "blue", "red", "purple", "orange", "green", "brown", "black"]
-            # colored_valid = ["yellow", "blue", "red", "purple", "orange", "green", "brown"]
-            # max_counts = {"yellow": 2, "blue": 2, "red": 2, "purple": 2, "orange": 2, "green": 2, "brown": 2, "black": 1}
-
-            # current_detected = {color: [] for color in valid_colors}
-            # for ball in balls_info:
-            #     x, y, r, label, number = ball
-            #     color_label = label.lower()
-            #     if color_label == "white" or color_label not in valid_colors:
-            #         continue
-            #     current_detected[color_label].append(ball)
-
-            # for color in valid_colors:
-            #     if len(current_detected[color]) > max_counts[color]:
-            #         current_detected[color] = current_detected[color][:max_counts[color]]
-
-            # if not any(remaining_balls.values()):
-            #     remaining_balls = {color: current_detected[color] for color in valid_colors}
-            #     points = 0
-            # else:
-            #     prev_total = sum(len(remaining_balls[color]) for color in colored_valid)
-            #     current_total = sum(len(current_detected[color]) for color in colored_valid)
-            #     delta = prev_total - current_total
-            #     points += delta
-            #     for color in valid_colors:
-            #         remaining_balls[color] = current_detected[color]
-
-            # total_missing = sum(max_counts[color] - len(remaining_balls[color]) for color in colored_valid)
-
             # # --- Check win/loss conditions ---
-            # # If all 14 colored balls are pocketed, display "YOU WON"
-            # if total_missing == 10:
-            #     h, w = display_frame.shape[:2]
-            #     cv2.putText(display_frame, "YOU WON", (w//2 - 150, h//2), 
-            #                 cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 255, 0), 4)
-            #     cv2.imshow("Live Video", display_frame)
-            #     key = cv2.waitKey(0) & 0xFF
-            #     if key == ord('w'):
-            #         # Reset game state.
-            #         points = 0
-            #         remaining_balls = {color: [] for color in valid_colors}
-            #         mode = "game"
-            #         continue
-            #     if key == ord('q'):
-            #         break
+            if score == 10:
+                h, w = display_frame.shape[:2]
+                cv2.putText(display_frame, "YOU WON", (w//2 - 150, h//2), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 255, 0), 4)
+                cv2.imshow("Live Video", display_frame)
+                key = cv2.waitKey(0) & 0xFF
+                if key == ord('w'):
+                    # Reset game state.
+                    score = 0
+                    mode = "game"
+                    continue
+                if key == ord('q'):
+                    break
 
-            # # Else, if the black ball is missing (pocketed) but not all colored balls are pocketed, you lose.
-            # elif len(remaining_balls["black"]) == 0 and total_missing < 10:
-            #     h, w = display_frame.shape[:2]
-            #     cv2.putText(display_frame, "YOU LOSE", (w//2 - 150, h//2), 
-            #                 cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 0, 255), 4)
-            #     cv2.imshow("Live Video", display_frame)
-            #     key = cv2.waitKey(0) & 0xFF
-            #     if key == ord('l'):
-            #         points = 0
-            #         remaining_balls = {color: [] for color in valid_colors}
-            #         mode = "game"
-            #         continue
-            #     if key == ord('q'):
-            #         break
+            # Else, if the black ball is missing (pocketed) but not all colored balls are pocketed, you lose.
+            elif not any(ball[3].lower() == "black" for ball in balls_info):
+                h, w = display_frame.shape[:2]
+                cv2.putText(display_frame, "YOU LOSE", (w//2 - 150, h//2), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 0, 255), 4)
+                cv2.imshow("Live Video", display_frame)
+                key = cv2.waitKey(0) & 0xFF
+                if key == ord('l'):
+                    points = 0
+                    mode = "game"
+                    continue
+                if key == ord('q'):
+                    break
 
-            # text = f"Score: {points}"
-            # (text_width, text_height), baseline = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
-            # text_x = (display_frame.shape[1] - text_width) // 2
-            # cv2.putText(display_frame, text, (text_x, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-
-            # present_balls = []
-            # for color in valid_colors:
-            #     present_balls.extend(remaining_balls[color])
-            # if present_balls:
-            #     h, w = display_frame.shape[:2]
-            #     panel = create_balls_panel(present_balls, w, panel_height=100)
-            #     combined_frame = np.vstack([display_frame, panel])
-            #     cv2.imshow("Live Video", combined_frame)
-            # else:
-            #     cv2.imshow("Live Video", display_frame)
-
+            present_balls = [ball for ball in balls_info if ball[3].lower() not in ("white")]
+            if present_balls:
+                h, w = display_frame.shape[:2]
+                panel = create_balls_panel(present_balls, w, panel_height=100)
+                combined_frame = np.vstack([display_frame, panel])
+                cv2.imshow("Live Video", combined_frame)
+            else:
+                cv2.imshow("Live Video", display_frame)
+            
         key = cv2.waitKey(33) & 0xFF
         if key == ord('q'):
             break

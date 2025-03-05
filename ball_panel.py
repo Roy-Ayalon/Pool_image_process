@@ -4,15 +4,16 @@ import numpy as np
 # Define the HSV ranges as provided.
 COLOR_RANGES = {
     "yellow":   ((16,  147,  224),  (36, 167, 244)),  # new
-    "brown":    ((0,   157,  150),  (40, 170, 175)),  # NOT GOOD
-    "blue":     ((94,  226,  108),  (114, 246, 128)), # new
-    "red":      ((158,   195,  167),  (178, 215, 187)),  # new
-    "orange":   ((0,  173,  230),  (40, 210, 270)),  # NOT GOOD
-    "green":    ((75,  200,  85),  (95, 230, 115)),  # new
-    "purple":   ((132, 125,  108),  (152, 145, 128)), # new
+    "brown":    ((0,   157,  150),  (40, 170, 175)),  # new
+    "blue":     ((80,  130,  160),  (115, 220, 210)), # new
+    "red":      ((115,   125,  210),  (179, 230, 255)),  # new
+    "orange":   ((0,  160,  230),  (40, 210, 270)),  # NOT GOOD
+    "green":    ((60,  130,  130),  (110, 230, 200)),  # new
+ #   "purple":   ((90, 70,  100),  (150, 170, 180)), # new
     "white":    ((60,   0,    230),  (100, 20, 255)),  # hue ~0-180, sat ~0-50, val ~200-255
-    "black":    ((60,   160,    0),    (85, 190, 50))    # new
+    "black":    ((30,   120,    0),    (85, 190, 50))    # new
 }
+
 
 def hsv_mean_to_bgr(lower, upper):
     """
@@ -93,11 +94,11 @@ def create_balls_panel(balls_info, frame_width, panel_height=100):
         cv2.circle(panel, (center_x, center_y), ball_radius, color, -1)
 
         # Optionally label with the color name (ignoring the number)
-        # text = color_label.capitalize()
-        # text_size, _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
-        # text_x = center_x - text_size[0] // 2
-        # text_y = center_y + text_size[1] // 2
-        # cv2.putText(panel, text, (text_x, text_y),
-        #             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
+        text = color_label.capitalize()
+        text_size, _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
+        text_x = center_x - text_size[0] // 2
+        text_y = center_y + text_size[1] // 2 + 25
+        cv2.putText(panel, text, (text_x, text_y),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
 
     return panel
