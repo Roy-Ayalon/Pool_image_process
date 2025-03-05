@@ -604,55 +604,164 @@ def compute_next_trajectory(intersecting_ball, intersection_point, dir_unit):
 
     return new_white_dir, target_ball_dir
 
-import cv2
-import numpy as np
-
-def check_board_collision(trajectory_end, dir_unit, board_edges_mask, holes_mask):
+def check_hole_intersection(contact_point, dir_unit, holes_mask, max_length=100000, line_thickness=5):
     """
-    Check if a ball's trajectory hits a hole or the board edges.
+    Creates a mask for the white ball's trajectory (from contact_point in the direction of dir_unit)
+    and checks if it intersects with the holes mask.
 
     Parameters:
-        trajectory_end (tuple): The last computed point of the trajectory.
-        dir_unit (ndarray): The current direction of the ball.
-        board_edges_mask (ndarray): Mask containing only the table edges.
-        holes_mask (ndarray): Mask containing the pockets (holes).
+        contact_point (tuple): (x, y) coordinates where the trajectory begins.
+        dir_unit (ndarray): Normalized 2D direction vector.
+        holes_mask (ndarray): Binary mask (e.g., 0 or 255) for the holes.
+        max_length (int): Maximum length (in pixels) to extend the trajectory line.
+        line_thickness (int): Thickness with which to draw the trajectory line in the mask.
 
     Returns:
-        new_end_point (tuple): The corrected trajectory endpoint.
-        new_direction (ndarray or None): The new direction vector if bouncing off an edge, None if pocketed.
+        hit (bool): True if the trajectory line intersects a hole, False otherwise.
+        line_mask (ndarray): The mask image with the drawn trajectory.
+        intersection (ndarray): The result of the bitwise AND between line_mask and holes_mask.
     """
-    x, y = int(trajectory_end[0]), int(trajectory_end[1])
+    # Ensure holes_mask is single-channel.
+    if len(holes_mask.shape) == 3 and holes_mask.shape[2] > 1:
+        holes_mask_gray = cv2.cvtColor(holes_mask, cv2.COLOR_BGR2GRAY)
+    else:
+        holes_mask_gray = holes_mask
 
-    # Ensure the holes mask is a binary image (1 channel)
-    if len(holes_mask.shape) == 3:
-        holes_mask = cv2.cvtColor(holes_mask, cv2.COLOR_BGR2GRAY)
-    _, holes_mask = cv2.threshold(holes_mask, 127, 255, cv2.THRESH_BINARY)
-    print(f"shape:{holes_mask.shape}")
-
-    # Check if the ball lands in a hole
-    if holes_mask[x, y] > 0:
-        return (x, y), None  # Ball falls into the hole (no further movement)
+    # Create a blank mask (single-channel) matching holes_mask_gray.
+    line_mask = np.zeros_like(holes_mask_gray, dtype=np.uint8)
     
-    # Ensure the board edges mask is a binary image (1 channel)
-    if len(board_edges_mask.shape) == 3:
-        board_edges_mask = cv2.cvtColor(board_edges_mask, cv2.COLOR_BGR2GRAY)
-    _, board_edges_mask = cv2.threshold(board_edges_mask, 127, 255, cv2.THRESH_BINARY)
+    # Compute an endpoint along the trajectory.
+    contact_arr = np.array(contact_point, dtype=float)
+    endpoint = contact_arr + max_length * np.array(dir_unit, dtype=float)
+    endpoint = tuple(np.round(endpoint).astype(int))
+    
+    # Draw the trajectory line on the blank mask.
+    cv2.line(line_mask, (int(contact_point[0]), int(contact_point[1])), endpoint, 255, thickness=line_thickness)
+    
+    # Now compute the intersection of the line mask with the holes mask.
+    intersection = cv2.bitwise_and(line_mask, holes_mask_gray)
+    
+    # Check if there is any intersection (non-zero pixel)
+    hit = cv2.countNonZero(intersection) > 0
 
-    # Check if the ball hits a board edge
-    if board_edges_mask[x, y] > 0:
-        # Compute normal reflection based on board edge
-        normal_vector = np.array([0, 0], dtype=float)
+    # Visualize the line mask and holes mask
+    # cv2.imshow("Line Mask", line_mask)
+    # cv2.imshow("Holes Mask", holes_mask_gray)
+    # cv2.imshow("inter", intersection)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    
+    return hit, line_mask, intersection
 
-        # Check for horizontal edge (top/bottom)
-        if board_edges_mask[x-1, y] > 0 and board_edges_mask[x+1, y] > 0:
-            normal_vector = np.array([0, 1])  # Flip Y direction
 
-        # Check for vertical edge (left/right)
-        if board_edges_mask[x, y-1] > 0 and board_edges_mask[x, y+1] > 0:
-            normal_vector = np.array([1, 0])  # Flip X direction
+def get_reflection_direction(dir_unit, board_edges_mask, intersection_point, window_size=10):
+    """
+    Given the incident direction (dir_unit), board edges mask, and the intersection point,
+    compute the reflection direction based on a local estimation of the wall's normal.
+    
+    Parameters:
+        dir_unit (ndarray): Normalized 2D incident direction vector.
+        board_edges_mask (ndarray): Binary mask for the board edges.
+        intersection_point (tuple): (x, y) coordinates of the collision point.
+        window_size (int): Half-size of the window to extract local edge pixels.
+        
+    Returns:
+        reflection (ndarray or None): Normalized reflection direction vector,
+                                      or None if a local edge cannot be estimated.
+    """
+    x, y = intersection_point
+    h, w = board_edges_mask.shape[:2]
+    
+    # Define the region of interest (ROI) around the intersection point.
+    x1 = max(0, x - window_size)
+    x2 = min(w, x + window_size)
+    y1 = max(0, y - window_size)
+    y2 = min(h, y + window_size)
+    
+    # Extract the patch from the board edges mask.
+    patch = board_edges_mask[y1:y2, x1:x2]
+    
+    # Find nonzero points (i.e., edge pixels) in the patch.
+    pts = cv2.findNonZero(patch)
+    if pts is None or len(pts) < 2:
+        # Not enough points to determine a line.
+        return None
 
-        # Compute the reflected direction
-        reflected_dir = dir_unit - 2 * np.dot(dir_unit, normal_vector) * normal_vector
-        return (x, y), reflected_dir  # Continue moving in the new direction
+    # Reshape points to (N, 2) and convert to absolute coordinates.
+    pts = pts.reshape(-1, 2)
+    pts[:, 0] += x1
+    pts[:, 1] += y1
 
-    return (x, y), dir_unit  # No collision, continue in same direction
+    # Fit a line to these points using cv2.fitLine.
+    # The output is in the form (vx, vy, x0, y0) where (vx, vy) is the unit vector of the line.
+    line = cv2.fitLine(pts, cv2.DIST_L2, 0, 0.01, 0.01).flatten()
+    vx, vy, _, _ = line
+
+    # The wall's tangent is (vx, vy). Its normal can be taken as (-vy, vx) (or the opposite).
+    normal = np.array([-vy, vx])
+    normal = normal / np.linalg.norm(normal)
+    
+    # Compute the reflection direction using the formula:
+    # reflected = v - 2 * (v dot n) * n
+    reflection = dir_unit - 2 * (np.dot(dir_unit, normal)) * normal
+    reflection = reflection / np.linalg.norm(reflection)
+    
+    return reflection
+
+def check_board_edge_intersection(contact_point, dir_unit, board_edges_mask, max_length=100000, line_thickness=5):
+    """
+    Checks if the white ball's trajectory (starting from contact_point along dir_unit)
+    intersects the board edges mask and returns the first intersection point.
+
+    Parameters:
+        contact_point (tuple): (x, y) coordinates where the trajectory begins.
+        dir_unit (ndarray): Normalized 2D direction vector.
+        board_edges_mask (ndarray): Binary mask (e.g., 0 or 255) representing the board edges.
+        max_length (int): Maximum length (in pixels) to extend the trajectory line.
+        line_thickness (int): Thickness with which to draw the trajectory line in the mask.
+
+    Returns:
+        hit (bool): True if the trajectory line intersects a board edge, False otherwise.
+        line_mask (ndarray): The mask image with the drawn trajectory.
+        intersection (ndarray): The result of the bitwise AND between line_mask and board_edges_mask.
+        intersection_point (tuple or None): The (x, y) coordinates of the intersection point,
+                                             or None if no intersection was found.
+    """
+    # Ensure board_edges_mask is single-channel.
+    if len(board_edges_mask.shape) == 3 and board_edges_mask.shape[2] > 1:
+        board_edges_gray = cv2.cvtColor(board_edges_mask, cv2.COLOR_BGR2GRAY)
+    else:
+        board_edges_gray = board_edges_mask
+
+    # Create a blank mask matching board_edges_gray.
+    line_mask = np.zeros_like(board_edges_gray, dtype=np.uint8)
+
+    # Compute an endpoint along the trajectory.
+    contact_arr = np.array(contact_point, dtype=float)
+    endpoint = contact_arr + max_length * np.array(dir_unit, dtype=float)
+    endpoint = tuple(np.round(endpoint).astype(int))
+
+    # Draw the trajectory line on the blank mask.
+    cv2.line(line_mask, (int(contact_point[0]), int(contact_point[1])), endpoint, 255, thickness=line_thickness)
+
+    # Compute the intersection of the trajectory with the board edges.
+    intersection = cv2.bitwise_and(line_mask, board_edges_gray)
+    hit = cv2.countNonZero(intersection) > 0
+
+    intersection_point = None
+    reflection_direction = None
+    if hit:
+        # Get all the non-zero points (intersection pixels).
+        pts = cv2.findNonZero(intersection)
+        if pts is not None:
+            pts = pts.reshape(-1, 2)  # Convert shape from (N,1,2) to (N,2)
+            # Compute the squared distances from the contact point.
+            distances = np.sum((pts - np.array(contact_point))**2, axis=1)
+            # The closest point is considered the first intersection point.
+            min_index = np.argmin(distances)
+            intersection_point = tuple(pts[min_index])
+
+            # Compute the reflection direction from the estimated local wall normal.
+            reflection_direction = get_reflection_direction(dir_unit, board_edges_gray, intersection_point)
+
+    return hit, line_mask, intersection, intersection_point, reflection_direction

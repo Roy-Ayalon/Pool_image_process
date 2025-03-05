@@ -30,15 +30,15 @@ COLOR_TO_BALL = {
 # 2) Approximate HSV color ranges
 # -------------------------------------------------------------------------
 COLOR_RANGES = {
-    "yellow":   ((0,  140,  2230),  (50, 170, 267)),  # library
-    "brown":    ((0,   145,  180),  (20, 170, 220)),  # library
-    "blue":     ((100,  185,  155),  (130, 220, 185)), # library
-    "red":      ((158,   195,  240),  (190, 255, 255)),  # library
-    "orange":   ((0,  160,  230),  (40, 230, 255)),  # NOT GOOD
-    "green":    ((75,  170,  85),  (115, 210, 115)),  # library
-    "purple":   ((140, 140,  100),  (180, 180, 190)), # library
-    "white":    ((0,   0,    220),  (180, 100, 255)),  # hue ~0-180, sat ~0-50, val ~200-255
-    "black":    ((0,   0,    0),    (180, 255, 50))    # library
+    "yellow":   ((16,  147,  224),  (36, 167, 244)),  # new
+    "brown":    ((0,   157,  150),  (40, 170, 175)),  # new
+    "blue":     ((80,  130,  160),  (115, 220, 210)), # new
+    "red":      ((115,   125,  210),  (179, 230, 255)),  # new
+    "orange":   ((0,  160,  230),  (40, 210, 270)),  # NOT GOOD
+    "green":    ((60,  130,  130),  (110, 230, 200)),  # new
+ #   "purple":   ((90, 70,  100),  (150, 170, 180)), # new
+    "white":    ((60,   0,    230),  (100, 20, 255)),  # hue ~0-180, sat ~0-50, val ~200-255
+    "black":    ((30,   120,    0),    (85, 190, 50))    # new
 }
 
 def classify_ball_color(hsv_ball_roi):
@@ -131,41 +131,32 @@ def extract_circular_roi(image, x, y, r):
     circular_roi = cv2.bitwise_and(square_roi, square_roi, mask=mask)
 
     return circular_roi
+import cv2
+import numpy as np
 
 def detect_pool_balls(image, board_contour):
     """
-    Detects circles (balls) via HoughCircles, extracts each ball's color,
-    and classifies them by standard 8-ball numbering.
+    Detects both white and colored balls on the table, returning only the single largest white ball.
+    
     Returns:
-        annotated_image : BGR image with labeled circles drawn
-        balls_info      : list of (x, y, r, label, number)
-        ball_mask       : mask of the balls
+        - annotated: BGR image with recognized circles (colored and ONE white) drawn
+        - balls_info: list of (x, y, r, label, number) for all recognized balls (including 1 white ball)
+        - ball_mask: binary mask of recognized balls
+        - contour_balls: list of ball contours
+        - binary: binary image for debug
+        - white_ball: tuple (x, y, r) for the single largest white ball or None
     """
-    # # 1. Load the image
-    # image = cv2.imread(image_path)
-    # if image is None:
-    #     raise IOError(f"Could not open image at {image_path}")
 
-    # We'll draw on a copy so we don't modify the original
     annotated = image.copy()
-
-    # mask of the balls
     ball_mask = np.zeros(image.shape[:2], dtype=np.uint8)
-
-    # 2. Convert to grayscale & blur
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    #gray = cv2.medianBlur(gray, 5)
 
-    # find only the circles in contour over the original image
+    # Restrict detection inside the board
     mask = np.zeros_like(gray)
-    #gray_image = y_i.astype(np.uint8)
     cv2.drawContours(mask, [board_contour], -1, 255, -1)
     gray = cv2.bitwise_and(gray, gray, mask=mask)
 
-    
-    # 3. Hough Circle detection
-    #    Adjust these params to fit your image size and ball sizes
-    #! changes, work with MAC
+    # Hough Circle detection
     circles = cv2.HoughCircles(
         gray,
         cv2.HOUGH_GRADIENT,
@@ -177,58 +168,76 @@ def detect_pool_balls(image, board_contour):
         maxRadius=22
     )
 
-    balls_info = []
-    contour_balls = []
+    balls_info = []         # For all recognized (non-white) colored balls
+    contour_balls = []      # For storing ball contour circles
     binary = np.zeros_like(image)
-    white_ball = None  # Placeholder for white ball info
+    white_candidates = []   # Collect all white ball candidates here
+
     if circles is not None and len(circles) > 0:
-        # Convert to int32 (avoid uint16 overflow when subtracting)
-        circles = np.uint16(np.around(circles))
-        circles = circles.astype(np.int32)  # each circle is now (x, y, r)
+        circles = np.uint16(np.around(circles)).astype(np.int32)
+
         for (x, y, r) in circles[0]:
-            # 4. Boundary check: skip circles that go out of the image
+            # Check boundaries
             if (x - r < 0) or (y - r < 0) or (x + r >= image.shape[1]) or (y + r >= image.shape[0]):
                 continue
 
-            # 5. Extract ball ROI
+            # Extract ball ROI
             ball_roi = extract_circular_roi(image, x, y, r)
             hsv_roi = cv2.cvtColor(ball_roi, cv2.COLOR_BGR2HSV)
 
-            # 6. Classify color
+            # Classify ball color
             color_name = classify_ball_color(hsv_roi)
+            if color_name is None:
+                continue  # Skip if not recognized at all
 
-        
-            # Use the color name to determine if it's solid or striped
-            ball_number = COLOR_TO_BALL.get(color_name, -1)  # -1 if unknown
-            ball_label  = f"{color_name}"
-
+            # If it's white, store candidate and skip for now
             if color_name == "white":
-                white_ball = (x, y, r)
+                white_candidates.append((x, y, r))
+                continue
 
-            # 7. Save info
-            balls_info.append((x, y, r, ball_label, ball_number))
+            # For colored ball
+            ball_number = COLOR_TO_BALL.get(color_name, -1)
+            if ball_number == -1:
+                continue  # Unknown color => skip
 
-            # 8. Draw the circle & label on the annotated image
+            # Save recognized colored ball
+            balls_info.append((x, y, r, color_name, ball_number))
+
+            # Draw on annotated and binary
             cv2.circle(binary, (x, y), r, (255, 0, 0), 1)
-            #cv2.putText(
-            #    annotated, ball_label,
-            #    (x - r, y - r - 5),
-            #    cv2.FONT_HERSHEY_SIMPLEX,
-            #    0.6, (255, 0, 0), 2
-            #)
+            cv2.circle(annotated, (x, y), r, (0, 255, 0), 2)
 
-            # add contour of the ball to the list
-            contour_balls.append(cv2.circle(ball_mask, (x, y), r, 255, -1))
-    else:
-        print("No circles detected by Hough transform.")
+            # Draw contour on ball_mask
+            cv2.circle(ball_mask, (x, y), r, 255, -1)
+            contour_balls.append(True)  # We just record something; optionally store (x,y,r)
 
-    
+    # ----- Now pick exactly one largest white ball among the candidates -----
+    white_ball = None
+    largest_radius = 0
 
-    # create a mask of the balls
-    for (x, y, r, label, number) in balls_info:
-        cv2.circle(ball_mask, (x, y), r, 255, -1)
+    for (wx, wy, wr) in white_candidates:
+        if wr > largest_radius:
+            largest_radius = wr
+            white_ball = (wx, wy, wr)
+
+    # If we found a white ball, add it to final output
+    if white_ball:
+        wx, wy, wr = white_ball
+        # Add to balls_info
+        balls_info.append((wx, wy, wr, "white", 0))
+
+        # Draw on annotated + binary
+        cv2.circle(binary, (wx, wy), wr, (255, 255, 255), 1)
+        cv2.circle(annotated, (wx, wy), wr, (0, 0, 255), 2)
+        cv2.putText(annotated, "white", (wx - 10, wy - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+
+        # Also fill in ball_mask and store contour info
+        cv2.circle(ball_mask, (wx, wy), wr, 255, -1)
+        contour_balls.append(True)  # Or store real data if needed
 
     return annotated, balls_info, ball_mask, contour_balls, binary, white_ball
+
 
 
 

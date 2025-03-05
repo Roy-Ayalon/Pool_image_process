@@ -119,10 +119,10 @@ def detect_board(frame, debug=False):
     green = no_holes[:,:,1]
 
     # show the red and green channels
-    #cv2.imshow("red", red)
-    #cv2.imshow("green", green)
-    #cv2.waitKey(0)
-    #cv2.destroyAllWindows()
+    # cv2.imshow("red", red)
+    # cv2.imshow("green", green)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
 
     # Separate lines into vertical and horizontal groups based on theta
     vertical_lines = []
@@ -180,7 +180,7 @@ def detect_board(frame, debug=False):
     if not contours:
         raise ValueError("No contours found in green segmentation.")
     # take 4 largest contours, and make hole mask
-    largest_contours = sorted(contours, key=cv2.contourArea, reverse=True)[:4]
+    largest_contours = sorted(contours, key=cv2.contourArea, reverse=True)[:6]
     hole_mask = np.zeros_like(frame)
     cv2.drawContours(hole_mask, largest_contours, -1, (255, 255, 255), cv2.FILLED)
     #cv2.imshow("hole_mask", hole_mask)
