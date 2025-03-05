@@ -32,6 +32,10 @@ def detect_stick(image, mask):
         """
         Detect the stick line using the Fast Line Detector (LSD) and draw it on the image.
         """
+        # show binary image
+        #cv2.imshow('binary_k_channel', binary_k_channel)
+        #cv2.waitKey(0)
+        #cv2.destroyAllWindows()
         result_img = image.copy()
         lsd = cv2.createLineSegmentDetector(0)
         detected = lsd.detect(binary_k_channel)
@@ -53,6 +57,17 @@ def detect_stick(image, mask):
 
         if len(longest_lines) < 2:
             print("Not enough lines detected.")
+            # if there is only 1 line, return it
+            if len(longest_lines) == 1:
+                line = longest_lines[0].flatten()
+                start_point = (int(line[0]), int(line[1]))
+                end_point = (int(line[2]), int(line[3]))
+                return result_img, start_point, end_point
+            return result_img, None, None
+        
+        # if the lines not big enough, return None
+        if line_length(longest_lines[0]) < 50 or line_length(longest_lines[1]) < 50:
+            print("Lines are too short.")
             return result_img, None, None
 
         # Flatten the lines to get their endpoints.
@@ -68,7 +83,7 @@ def detect_stick(image, mask):
 
     # Convert image to K channel and binarize it.
     k_channel = convert_to_cmyk_k_channel(image, mask)
-    binary_k_channel = binarize_k_channel(k_channel, threshold=190)
+    binary_k_channel = binarize_k_channel(k_channel, threshold=210)
 
     # Detect and draw the stick using LSD.
     result_img, start_point, end_point = detect_and_draw_stick(image, binary_k_channel)
