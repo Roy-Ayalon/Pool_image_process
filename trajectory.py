@@ -490,9 +490,18 @@ def okay_to_shoot(frame, line, white_ball, balls_info):
 
         # Extend the line across the image
         line_length = max(width, height) * 2  # Large length to ensure extension
+        # Calculate direction vector
         dx, dy = x2 - x1, y2 - y1
         line_vector = np.array([dx, dy], dtype=float)
-        line_vector /= np.linalg.norm(line_vector)  # Normalize
+
+        # Check if the vector has zero length (to avoid division by zero)
+        norm = np.linalg.norm(line_vector)
+        if norm == 0:
+            print("Error: Zero-length line vector, cannot normalize.")
+            return False  # or handle differently
+
+        # Normalize the vector
+        line_vector /= norm
 
         # Calculate extended points
         extended_start = (int(x1 - line_vector[0] * line_length), int(y1 - line_vector[1] * line_length))
