@@ -182,7 +182,7 @@ def detect_board(frame, debug=False):
     # take 4 largest contours, and make hole mask
     largest_contours = sorted(contours, key=cv2.contourArea, reverse=True)[:4]
     hole_mask = np.zeros_like(frame)
-    #cv2.drawContours(hole_mask, largest_contours, -1, (255, 255, 255), cv2.FILLED)
+    cv2.drawContours(hole_mask, largest_contours, -1, (255, 255, 255), cv2.FILLED)
     #cv2.imshow("hole_mask", hole_mask)
     #cv2.waitKey(0)
     #cv2.destroyAllWindows()

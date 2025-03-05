@@ -30,15 +30,15 @@ COLOR_TO_BALL = {
 # 2) Approximate HSV color ranges
 # -------------------------------------------------------------------------
 COLOR_RANGES = {
-    "yellow":   ((16,  147,  224),  (36, 167, 244)),  # new
-    "brown":    ((0,   157,  150),  (40, 170, 175)),  # new
-    "blue":     ((80,  200,  108),  (114, 246, 170)), # new
-    "red":      ((158,   195,  167),  (179, 255, 187)),  # new
-    "orange":   ((0,  160,  230),  (40, 210, 270)),  # NOT GOOD
-    "green":    ((75,  200,  85),  (95, 230, 115)),  # new
-    "purple":   ((128, 125,  100),  (158, 180, 170)), # new
-    "white":    ((60,   0,    230),  (100, 20, 255)),  # hue ~0-180, sat ~0-50, val ~200-255
-    "black":    ((30,   120,    0),    (85, 190, 50))    # new
+    "yellow":   ((0,  140,  2230),  (50, 170, 267)),  # library
+    "brown":    ((0,   145,  180),  (20, 170, 220)),  # library
+    "blue":     ((100,  185,  155),  (130, 220, 185)), # library
+    "red":      ((158,   195,  240),  (190, 255, 255)),  # library
+    "orange":   ((0,  160,  230),  (40, 230, 255)),  # NOT GOOD
+    "green":    ((75,  170,  85),  (115, 210, 115)),  # library
+    "purple":   ((140, 140,  100),  (180, 180, 190)), # library
+    "white":    ((0,   0,    220),  (180, 100, 255)),  # hue ~0-180, sat ~0-50, val ~200-255
+    "black":    ((0,   0,    0),    (180, 255, 50))    # library
 }
 
 def classify_ball_color(hsv_ball_roi):
@@ -53,10 +53,10 @@ def classify_ball_color(hsv_ball_roi):
         A string (e.g., "black", "white", "blue", "red", etc.)
     """
 
-    # 1) Compute average H, S, V (like the old function)
-    avg_h = np.mean(hsv_ball_roi[:, :, 0])
-    avg_s = np.mean(hsv_ball_roi[:, :, 1])
-    avg_v = np.mean(hsv_ball_roi[:, :, 2])
+    # # 1) Compute average H, S, V (like the old function)
+    # avg_h = np.mean(hsv_ball_roi[:, :, 0])
+    # avg_s = np.mean(hsv_ball_roi[:, :, 1])
+    # avg_v = np.mean(hsv_ball_roi[:, :, 2])
 
     # 2) Among the color ranges, find which covers the most pixels
     best_color = None
@@ -79,9 +79,9 @@ def classify_ball_color(hsv_ball_roi):
             best_count = count
 
     # 3) Fallback: If no color or best_color is None, default to "white"
-    # (Your old code used “white” as fallback)
-    if best_color is None:
-        return "white"
+    # # (Your old code used “white” as fallback)
+    # if best_color is None:
+    #     return "white"
 
     # 4) (Optional) We can also ensure avg H,S,V fits into that color range:
     #    But since your old approach was correct “most of the time,”
@@ -94,7 +94,7 @@ def classify_ball_color(hsv_ball_roi):
     #                lower[2] <= avg_v <= upper[2]):
     #            best_color = "white"  # or "unknown"
 
-    return best_color
+    return best_color if best_color else "unknown"
 
 def extract_circular_roi(image, x, y, r):
     """
@@ -173,13 +173,14 @@ def detect_pool_balls(image, board_contour):
         minDist=10,
         param1=50,
         param2=30,
-        minRadius=15,
-        maxRadius=20
+        minRadius=12,
+        maxRadius=22
     )
 
     balls_info = []
     contour_balls = []
     binary = np.zeros_like(image)
+    white_ball = None  # Placeholder for white ball info
     if circles is not None and len(circles) > 0:
         # Convert to int32 (avoid uint16 overflow when subtracting)
         circles = np.uint16(np.around(circles))
@@ -198,8 +199,11 @@ def detect_pool_balls(image, board_contour):
 
         
             # Use the color name to determine if it's solid or striped
-            ball_number = COLOR_TO_BALL[color_name]
+            ball_number = COLOR_TO_BALL.get(color_name, -1)  # -1 if unknown
             ball_label  = f"{color_name}"
+
+            if color_name == "white":
+                white_ball = (x, y, r)
 
             # 7. Save info
             balls_info.append((x, y, r, ball_label, ball_number))
@@ -224,42 +228,80 @@ def detect_pool_balls(image, board_contour):
     for (x, y, r, label, number) in balls_info:
         cv2.circle(ball_mask, (x, y), r, 255, -1)
 
-    return annotated, balls_info, ball_mask, contour_balls, binary
+    return annotated, balls_info, ball_mask, contour_balls, binary, white_ball
 
 
 
-def detect_white_ball(frame, board_contour, min_radius=10, max_radius=25):
-    """Detects the white cue ball on the pool table by selecting the largest detected white ball."""
-    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+# def detect_white_ball(frame, board_contour, min_radius=15, max_radius=25):
+#     """Detects the white cue ball on the pool table by selecting the largest detected white ball."""
+#     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     
-    # Define HSV range for white color (tuned for typical lighting conditions)
-    lower_white = np.array([0, 0, 200], dtype=np.uint8)
-    upper_white = np.array([180, 150, 255], dtype=np.uint8)
-    mask_white = cv2.inRange(hsv, lower_white, upper_white)
+#     # Define HSV range for white color (tuned for typical lighting conditions)
+#     lower_white = np.array([0, 0, 200], dtype=np.uint8)
+#     upper_white = np.array([180, 150, 255], dtype=np.uint8)
+#     mask_white = cv2.inRange(hsv, lower_white, upper_white)
     
-    # Mask only inside the board
-    mask = np.zeros_like(mask_white)
-    cv2.drawContours(mask, [board_contour], -1, 255, -1)
-    mask_white = cv2.bitwise_and(mask_white, mask_white, mask=mask)
+#     # Mask only inside the board
+#     mask = np.zeros_like(mask_white)
+#     cv2.drawContours(mask, [board_contour], -1, 255, -1)
+#     mask_white = cv2.bitwise_and(mask_white, mask_white, mask=mask)
     
-    # Find contours of possible white balls
-    contours, _ = cv2.findContours(mask_white, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    largest_radius = 0
-    largest_ball = None
+#     # Find contours of possible white balls
+#     contours, _ = cv2.findContours(mask_white, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+#     largest_radius = 0
+#     largest_ball = None
     
-    for cnt in contours:
-        (x, y), radius = cv2.minEnclosingCircle(cnt)
-        if min_radius <= radius <= max_radius and radius > largest_radius:  # Select only the largest valid white ball
-            largest_radius = radius
-            largest_ball = (int(x), int(y), int(radius))
+#     for cnt in contours:
+#         (x, y), radius = cv2.minEnclosingCircle(cnt)
+#         if min_radius <= radius <= max_radius and radius > largest_radius:  # Select only the largest valid white ball
+#             largest_radius = radius
+#             largest_ball = (int(x), int(y), int(radius))
     
-    # Draw only the largest detected white ball if within valid range
-    if largest_ball:
-        x, y, radius = largest_ball
-        cv2.circle(frame, (x, y), radius, (0, 0, 255), 2)  # Draw white ball in red
-        cv2.putText(frame, "White Ball", (x - 10, y - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+#     # Draw only the largest detected white ball if within valid range
+#     if largest_ball:
+#         x, y, radius = largest_ball
+#         cv2.circle(frame, (x, y), radius, (0, 0, 255), 2)  # Draw white ball in red
+#         cv2.putText(frame, "White Ball", (x - 10, y - 10),
+#                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
     
 
-    return frame, largest_ball
+#     return frame, largest_ball
 
+def main():
+    cap = cv2.VideoCapture(0)  # Adjust camera index if needed
+    if not cap.isOpened():
+        print("Error opening camera")
+        return
+
+    # Capture an initial frame for ROI selection.
+    ret, frame = cap.read()
+    if not ret:
+        print("Error reading from camera")
+        return
+
+    # Select ROI covering the tip of the stick to determine its color.
+    lower_color, upper_color = select_roi_and_get_color(frame)
+
+    print("Starting stick detection. Press ESC to exit.")
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        # Convert frame to HSV and generate a binary mask for the selected color.
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        mask_hsv = cv2.inRange(hsv, lower_color, upper_color)
+
+        # Pass the original frame and the HSV mask into the stick detector.
+        result_img, refined_line = detect_stick(frame, mask_hsv)
+
+        # Display both the original frame and the result from stick detection.
+        cv2.imshow("Original Frame", frame)
+        cv2.imshow("Stick Detection", result_img)
+
+        key = cv2.waitKey(30) & 0xFF
+        if key == 27:  # Press ESC to exit.
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
