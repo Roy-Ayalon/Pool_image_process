@@ -8,7 +8,7 @@ from detect_stick import detect_stick
 from trajectory import okay_to_shoot, compute_trajectory, extend_line, find_first_intersecting_ball, compute_next_trajectory, check_hole_intersection, check_board_edge_intersection
 import matplotlib.pyplot as plt
 from ball_panel import create_balls_panel
-from is_moving import check_white_ball_movement  # Import the white ball movement check function
+from is_moving import check_white_ball_movement  # Updated function signature
 
 # Global persistent dictionary for remaining balls.
 remaining_balls = {}
@@ -16,11 +16,11 @@ remaining_balls = {}
 # Global point counter.
 points = 0
 
-# Global variable to track the previous white ball center (for movement detection).
+# Global variable to store the previous white ball center.
 previous_white_ball_center = None
 
 def main():
-    global remaining_balls, points, previous_white_ball_center  # Declare globals
+    global remaining_balls, points, previous_white_ball_center
 
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
@@ -30,7 +30,7 @@ def main():
     # Modes: idle, board_captured, mask (balls detected), game.
     mode = "idle"
     board_contour = None
-    binary_image = None  # This is our board mask from detect_board()
+    binary_image = None  # Board mask from detect_board()
     binary_mask = None   # Also obtained when detecting the board
 
     print("Press 'b' to detect board, 'a' to detect balls on table, 's' to start game, 'q' to quit.")
@@ -41,7 +41,7 @@ def main():
             print("Failed to capture frame.")
             break
 
-        # Preprocess frame with a blur
+        # Preprocess frame with a blur.
         frame_blurred = cv2.GaussianBlur(frame, (5, 5), 0)
         display_frame = frame.copy()
 
@@ -95,7 +95,7 @@ def main():
                 white_center = (white_ball[0], white_ball[1])
                 white_ball_moving = check_white_ball_movement(white_center,previous_white_ball_center, frame, threshold=20)
                 previous_white_ball_center = white_center
-            
+ 
             if white_ball_moving:
                 # FOR DEBUGGING
                 cv2.putText(display_frame, "White ball moving - stick detection skipped", (10, 90),
