@@ -5,7 +5,7 @@ from detect_balls import detect_pool_balls, detect_white_ball
 from detect_board import detect_board
 from detect_holes import detecet_holes
 from detect_stick import detect_stick
-from trajectory import okay_to_shoot, compute_trajectory, extend_line
+from trajectory import okay_to_shoot, compute_trajectory, extend_line, find_first_intersecting_ball, compute_next_trajectory, check_board_collision
 import matplotlib.pyplot as plt
 from ball_panel import create_balls_panel
 
@@ -114,30 +114,127 @@ def main():
                     cv2.putText(display_frame, overlay_text, (text_x, text_y), font, font_scale, text_color, thickness)
 
                     if okay:
+                        # --- white ball line ---
                         white_x, white_y, white_radius = white_ball
                         white_center = (white_x, white_y)
+
+                        # Compute initial trajectory
                         dir_unit, contact_point = compute_trajectory(white_center, white_radius, line)
-                        print(dir_unit, contact_point)
+
+                        # --- White Ball First Trajectory ---
+                        intersecting_ball, intersection_point = find_first_intersecting_ball(contact_point, dir_unit, balls_info, board_contour)
 
                         step = 5  # Small step size for trajectory advancement
                         current_point = np.array(contact_point, dtype=float)
                         total_length = 0
-
                         max_length = 1000
-                        while total_length < max_length:
-                            next_point = current_point + step * dir_unit
-                            
-                            # Check if the next point is still inside the board contour
-                            if cv2.pointPolygonTest(board_contour, (next_point[0], next_point[1]), False) < 0:
-                                break  # Stop drawing when exiting the board
 
-                            current_point = next_point
-                            total_length += step
+                        # Check if a colored ball is hit
+                        if intersecting_ball:
+                            trajectory_end = np.array(intersection_point, dtype=float)  # Stop at the ball
+                        else:
+                            # If no ball is hit, continue to the board contour or holes
+                            while total_length < max_length:
+                                next_point = current_point + step * dir_unit
 
+                                # Check if the next point is still inside the board contour
+                                if cv2.pointPolygonTest(board_contour, (next_point[0], next_point[1]), False) < 0:
+                                    break  # Stop drawing when exiting the board
+
+                                current_point = next_point
+                                total_length += step
+
+                            trajectory_end = current_point  # Stop at the board
+
+                        # Check for board edge or hole collision for the white ball
+                        trajectory_end, new_dir = check_board_collision(trajectory_end, dir_unit, board_edges_mask, holes_mask)
+
+                        # Draw the white ball's trajectory (Yellow)
                         cv2.line(display_frame,
-                                (int(contact_point[0]), int(contact_point[1])),
-                                (int(current_point[0]), int(current_point[1])),
-                                color=(255, 255, 0), thickness=2)
+                                (int(contact_point[0]), int(trajectory_end[0])),
+                                (int(trajectory_end[1]), int(trajectory_end[1])),
+                                color=(255, 255, 0), thickness=4)
+
+                        # If the white ball falls into a hole, stop further calculations
+                        if new_dir is None:
+                            print("White ball pocketed!")
+                        else:
+                            # If bounced off the board edge, continue with the new direction
+                            current_point = np.array(trajectory_end, dtype=float)
+                            total_length = 0
+
+                            while total_length < max_length:
+                                next_point = current_point + step * new_dir
+
+                                # Stop if outside board contour
+                                if cv2.pointPolygonTest(board_contour, (next_point[0], next_point[1]), False) < 0:
+                                    break
+
+                                current_point = next_point
+                                total_length += step
+
+                            # Draw the new white ball trajectory after bounce (Cyan)
+                            cv2.line(display_frame,
+                                    (int(trajectory_end[0]), int(trajectory_end[1])),
+                                    (int(current_point[0]), int(current_point[1])),
+                                    color=(0, 255, 255), thickness=4)
+
+                        # --- If a ball is hit, compute its new trajectory ---
+                        if intersecting_ball:
+                            print(f"Ball {intersecting_ball[3]} (color: {intersecting_ball[4]}) will be hit at {intersection_point}")
+
+                            # Draw impact point
+                            cv2.circle(display_frame, intersection_point, 5, (0, 0, 255), -1)  # Red dot for impact
+
+                            # Compute next trajectories
+                            new_white_dir, target_ball_dir = compute_next_trajectory(intersecting_ball, intersection_point, dir_unit)
+
+                            # --- Target Ball Trajectory (Magenta) ---
+                            current_point = np.array(intersection_point, dtype=float)
+                            total_length = 0
+
+                            while total_length < max_length:
+                                next_point = current_point + step * target_ball_dir
+
+                                # Check if the target ball hits the board or falls into a hole
+                                next_point, new_target_dir = check_board_collision(next_point, target_ball_dir, board_edges_mask, holes_mask)
+
+                                if new_target_dir is None:
+                                    break  # Ball falls into hole
+
+                                current_point = next_point
+                                total_length += step
+
+                            # Draw the target ball's trajectory (Magenta)
+                            cv2.line(display_frame,
+                                    (int(intersection_point[0]), int(intersection_point[1])),
+                                    (int(current_point[0]), int(current_point[1])),
+                                    color=(255, 0, 255), thickness=4)
+
+                            # --- New White Ball Trajectory (Green) ---
+                            current_point = np.array(intersection_point, dtype=float)
+                            total_length = 0
+
+                            while total_length < max_length:
+                                next_point = current_point + step * new_white_dir
+
+                                # Check if the white ball hits the board or falls into a hole
+                                next_point, new_white_dir = check_board_collision(next_point, new_white_dir, board_edges_mask, holes_mask)
+
+                                if new_white_dir is None:
+                                    break  # White ball falls into hole
+
+                                current_point = next_point
+                                total_length += step
+
+                            # Draw the white ball's new trajectory (Green)
+                            cv2.line(display_frame,
+                                    (int(intersection_point[0]), int(intersection_point[1])),
+                                    (int(current_point[0]), int(current_point[1])),
+                                    color=(0, 255, 0), thickness=4)
+
+
+
 
             # --- End Stick Detection Code ---
             

@@ -228,13 +228,13 @@ def detect_pool_balls(image, board_contour):
 
 
 
-def detect_white_ball(frame, board_contour, min_radius=10, max_radius=25):
+def detect_white_ball(frame, board_contour, min_radius=15, max_radius=25):
     """Detects the white cue ball on the pool table by selecting the largest detected white ball."""
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     
     # Define HSV range for white color (tuned for typical lighting conditions)
     lower_white = np.array([0, 0, 200], dtype=np.uint8)
-    upper_white = np.array([180, 150, 255], dtype=np.uint8)
+    upper_white = np.array([140, 90, 255], dtype=np.uint8)
     mask_white = cv2.inRange(hsv, lower_white, upper_white)
     
     # Mask only inside the board

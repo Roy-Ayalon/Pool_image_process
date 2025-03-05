@@ -532,3 +532,116 @@ def extend_line(P1, P2, length=1000):
     direction = direction / np.linalg.norm(direction)  # Normalize
     extended_P2 = P1 + direction * length
     return tuple(extended_P2.astype(int))
+
+def find_first_intersecting_ball(contact_point, dir_unit, balls_info, board_contour, step_size=5, max_length=1000):
+    """
+    Finds the first ball that intersects the white ball's computed trajectory.
+
+    Parameters:
+        contact_point (tuple): The starting point (x, y) of the trajectory.
+        dir_unit (ndarray): The normalized direction vector of the white ball.
+        balls_info (list): List of detected balls [(x, y, r, label, number)].
+        board_contour (ndarray): Contour of the board (to stop the trajectory if needed).
+        step_size (int): Distance step for iterating along the trajectory.
+        max_length (int): Maximum trajectory length to check.
+
+    Returns:
+        intersecting_ball (tuple or None): The first ball that intersects the trajectory, or None if no intersection.
+        intersection_point (tuple or None): The point where the trajectory first intersects a ball.
+    """
+    current_point = np.array(contact_point, dtype=float)
+    total_length = 0
+
+    while total_length < max_length:
+        # Advance along the trajectory
+        next_point = current_point + step_size * dir_unit
+        
+        # Stop if outside board contour
+        if cv2.pointPolygonTest(board_contour, (next_point[0], next_point[1]), False) < 0:
+            return None, None  # No intersection before leaving the board
+        
+        # Check for intersection with any ball
+        for ball in balls_info:
+            bx, by, br, label, number = ball  # Ball center (bx, by), radius (br), and label
+            
+            # Compute distance between trajectory point and ball center
+            distance = np.linalg.norm(next_point - np.array([bx, by]))
+
+            if distance <= br:  # Collision detected
+                return ball, tuple(next_point.astype(int))
+
+        # Move forward
+        current_point = next_point
+        total_length += step_size
+
+    return None, None  # No ball was hit within max_length
+
+def compute_next_trajectory(intersecting_ball, intersection_point, dir_unit):
+    """
+    Computes the trajectory directions after the white ball collides with another ball.
+
+    Parameters:
+        intersecting_ball (tuple): The ball that was hit (x, y, r, label, number).
+        intersection_point (tuple): The point where the white ball first makes contact.
+        dir_unit (ndarray): The current direction vector of the white ball.
+
+    Returns:
+        new_white_dir (ndarray): The new direction of the white ball after impact.
+        target_ball_dir (ndarray): The direction of the target ball after impact.
+    """
+    bx, by, br, label, number = intersecting_ball
+    B = np.array([bx, by], dtype=float)  # Center of the ball that was hit
+    P = np.array(intersection_point, dtype=float)  # The impact point
+
+    # Compute the direction for the target ball (it moves away from the impact point)
+    target_ball_dir = B - P
+    target_ball_dir = target_ball_dir / np.linalg.norm(target_ball_dir)  # Normalize
+
+    # Compute the new white ball direction after impact (reflection model)
+    # The white ball is deflected perpendicular to the impact direction
+    normal = target_ball_dir  # Normal is the same as the target ball direction
+    new_white_dir = dir_unit - 2 * np.dot(dir_unit, normal) * normal  # Reflection formula
+
+    return new_white_dir, target_ball_dir
+
+import cv2
+import numpy as np
+
+def check_board_collision(trajectory_end, dir_unit, board_edges_mask, holes_mask):
+    """
+    Check if a ball's trajectory hits a hole or the board edges.
+
+    Parameters:
+        trajectory_end (tuple): The last computed point of the trajectory.
+        dir_unit (ndarray): The current direction of the ball.
+        board_edges_mask (ndarray): Mask containing only the table edges.
+        holes_mask (ndarray): Mask containing the pockets (holes).
+
+    Returns:
+        new_end_point (tuple): The corrected trajectory endpoint.
+        new_direction (ndarray or None): The new direction vector if bouncing off an edge, None if pocketed.
+    """
+    x, y = int(trajectory_end[0]), int(trajectory_end[1])
+
+    # Check if the ball lands in a hole
+    if holes_mask[y, x] > 0:
+        return (x, y), None  # Ball falls into the hole (no further movement)
+
+    # Check if the ball hits a board edge
+    if board_edges_mask[y, x] > 0:
+        # Compute normal reflection based on board edge
+        normal_vector = np.array([0, 0], dtype=float)
+
+        # Check for horizontal edge (top/bottom)
+        if board_edges_mask[y-1, x] > 0 and board_edges_mask[y+1, x] > 0:
+            normal_vector = np.array([0, 1])  # Flip Y direction
+
+        # Check for vertical edge (left/right)
+        if board_edges_mask[y, x-1] > 0 and board_edges_mask[y, x+1] > 0:
+            normal_vector = np.array([1, 0])  # Flip X direction
+
+        # Compute the reflected direction
+        reflected_dir = dir_unit - 2 * np.dot(dir_unit, normal_vector) * normal_vector
+        return (x, y), reflected_dir  # Continue moving in the new direction
+
+    return (x, y), dir_unit  # No collision, continue in same direction
