@@ -8,7 +8,7 @@ from detect_stick import detect_stick
 from trajectory import okay_to_shoot, compute_trajectory, extend_line
 import matplotlib.pyplot as plt
 from ball_panel import create_balls_panel
-from is_moving import check_white_ball_movement  # Import the white ball movement check function
+from is_moving import check_white_ball_movement  # Updated function signature
 
 # Global persistent dictionary for remaining balls.
 remaining_balls = {}
@@ -16,11 +16,11 @@ remaining_balls = {}
 # Global point counter.
 points = 0
 
-# Global variable to track the previous white ball center (for movement detection).
+# Global variable to store the previous white ball center.
 previous_white_ball_center = None
 
 def main():
-    global remaining_balls, points, previous_white_ball_center  # Declare globals
+    global remaining_balls, points, previous_white_ball_center
 
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
@@ -30,7 +30,7 @@ def main():
     # Modes: idle, board_captured, mask (balls detected), game.
     mode = "idle"
     board_contour = None
-    binary_image = None  # This is our board mask from detect_board()
+    binary_image = None  # Board mask from detect_board()
     binary_mask = None   # Also obtained when detecting the board
 
     print("Press 'b' to detect board, 'a' to detect balls on table, 's' to start game, 'q' to quit.")
@@ -41,7 +41,7 @@ def main():
             print("Failed to capture frame.")
             break
 
-        # Preprocess frame with a blur
+        # Preprocess frame with a blur.
         frame_blurred = cv2.GaussianBlur(frame, (5, 5), 0)
         display_frame = frame.copy()
 
@@ -89,13 +89,14 @@ def main():
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
             # --- White Ball Movement Check ---
-            # First, detect the white ball.
             _, white_ball = detect_white_ball(display_frame, board_contour)
             white_ball_moving = False
             if white_ball is not None:
                 white_center = (white_ball[0], white_ball[1])
-                white_ball_moving = check_white_ball_movement(white_center, frame)
-            
+                white_ball_moving = check_white_ball_movement(white_center, previous_white_ball_center, frame, threshold=20)
+                # Update the previous center after checking.
+                previous_white_ball_center = white_center
+
             if white_ball_moving:
                 cv2.putText(display_frame, "White ball moving - stick detection skipped", (10, 90),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
@@ -133,7 +134,6 @@ def main():
                             max_length = 1000
                             while total_length < max_length:
                                 next_point = current_point + step * dir_unit
-                                # Stop if the next point leaves the board.
                                 if cv2.pointPolygonTest(board_contour, (next_point[0], next_point[1]), False) < 0:
                                     break
                                 current_point = next_point
@@ -174,8 +174,6 @@ def main():
                 points += delta
                 for color in valid_colors:
                     remaining_balls[color] = current_detected[color]
-
-            total_missing = sum(max_counts[color] - len(remaining_balls[color]) for color in colored_valid)
 
             cv2.putText(display_frame, f"Score: {points}", (10, 60),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)

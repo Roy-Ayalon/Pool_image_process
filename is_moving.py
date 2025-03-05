@@ -1,7 +1,7 @@
 
 import numpy as np
 
-def check_white_ball_movement(white_center, frame, threshold=5):
+def check_white_ball_movement(white_center, previous_center, frame, threshold=5) -> bool:
     """
     Checks if the white ball is moving by comparing its current center with the previous center.
 
@@ -13,7 +13,7 @@ def check_white_ball_movement(white_center, frame, threshold=5):
     Returns:
         bool: True if the white ball is moving, False otherwise.
     """
-    global previous_white_ball_center
+    previous_white_ball_center = previous_center
     # If no previous position is recorded, assume the ball is stationary.
     if previous_white_ball_center is None:
         previous_white_ball_center = white_center
