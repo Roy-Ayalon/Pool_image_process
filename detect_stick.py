@@ -28,30 +28,9 @@ def detect_stick(image, mask):
 
         return binary_k
 
-    def detect_and_draw_stick(image, binary_k_channel, min_line_length=50, perp_threshold=150, inlier_threshold=150):
+    def detect_and_draw_stick(image, binary_k_channel, min_line_length=30, perp_threshold=150, inlier_threshold=150):
         """
-        Detect and draw a stable stick on the image.
-
-        This function uses the Fast Line Detector (LSD) to detect line segments in the 
-        binary_k_channel. It filters out segments shorter than a specified threshold,
-        computes the median angle of the remaining segments, and projects all endpoints
-        onto the median direction and its perpendicular. Endpoints too far (perp_threshold)
-        from the central cluster are discarded. Then, a robust line is fitted (via cv2.fitLine)
-        to the remaining points and further refined by rejecting points with high distance 
-        from the fitted line (inlier_threshold). Finally, the extreme endpoints along the
-        fitted line direction define the stick.
-
-        Parameters:
-            image (numpy.ndarray): The original image.
-            binary_k_channel (numpy.ndarray): A binary image (e.g., one channel) for LSD.
-            min_line_length (float): Minimum length for a line segment to be considered.
-            perp_threshold (float): Maximum allowed deviation in the perpendicular direction.
-            inlier_threshold (float): Maximum allowed distance from the robustly fitted line.
-
-        Returns:
-            result_img (numpy.ndarray): The image with the detected stick drawn.
-            start_point (tuple or None): (x, y) coordinates for one end of the stick, or None if not found.
-            end_point (tuple or None): (x, y) coordinates for the other end of the stick, or None if not found.
+        Detect and draw a stable stick on the image with debug visualization at various stages.
         """
         import numpy as np
         import cv2
@@ -71,6 +50,15 @@ def detect_stick(image, mask):
             coords = line.flatten()  # [x1, y1, x2, y2]
             return np.linalg.norm(coords[:2] - coords[2:], 2)
 
+        # --- Debug: Draw all detected lines ---
+        debug_img = result_img.copy()
+        for line in lines:
+            x1, y1, x2, y2 = line.flatten()
+            cv2.line(debug_img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), thickness=1)
+        #cv2.imshow("Detected Lines", debug_img)
+        #cv2.waitKey(0)
+        #cv2.destroyAllWindows()
+
         # Filter out short lines.
         valid_lines = [line for line in lines if line_length(line) >= min_line_length]
         if not valid_lines:
@@ -82,8 +70,20 @@ def detect_stick(image, mask):
             line = valid_lines[0].flatten()
             start_point = (int(line[0]), int(line[1]))
             end_point   = (int(line[2]), int(line[3]))
-            cv2.line(result_img, start_point, end_point, (0, 0, 255), thickness=3)
+            #cv2.line(result_img, start_point, end_point, (0, 0, 255), thickness=3)
+            #cv2.imshow("Single Valid Line", result_img)
+            #cv2.waitKey(0)
+            #cv2.destroyAllWindows()
             return result_img, start_point, end_point
+
+        # --- Debug: Draw all valid lines ---
+        debug_img = result_img.copy()
+        for line in valid_lines:
+            x1, y1, x2, y2 = line.flatten()
+            cv2.line(debug_img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), thickness=1)
+        #cv2.imshow("Valid Lines", debug_img)
+        #cv2.waitKey(0)
+        #cv2.destroyAllWindows()
 
         # Compute the angle for each valid line.
         angles = []
@@ -120,6 +120,16 @@ def detect_stick(image, mask):
             return result_img, None, None
         points_filtered = points[perp_mask]
 
+        # --- Debug: Visualize endpoints after perpendicular filtering ---
+        debug_img = result_img.copy()
+        for pt in points:
+            # Green if within threshold, red if not.
+            color = (0, 255, 0) if abs(pt.dot(v) - q_med) <= perp_threshold else (0, 0, 255)
+            cv2.circle(debug_img, (int(pt[0]), int(pt[1])), 3, color, -1)
+        #cv2.imshow("Perp Filter Points", debug_img)
+        #cv2.waitKey(0)
+        #cv2.destroyAllWindows()
+
         # Robustly fit a line using the filtered points.
         if len(points_filtered) >= 2:
             pts_for_fit = points_filtered.reshape(-1, 1, 2).astype(np.float32)
@@ -129,8 +139,7 @@ def detect_stick(image, mask):
             return result_img, None, None
 
         # Further filter points based on distance to the fitted line.
-        # The distance from a point (x, y) to the line through (x0,y0) with direction (vx,vy):
-        # distance = |vy*(x - x0) - vx*(y - y0)|
+        # Distance from a point (x,y) to line through (x0,y0) with direction (vx,vy):
         dists = np.abs(vy * (points_filtered[:,0] - x0) - vx * (points_filtered[:,1] - y0))
         inlier_mask = dists <= inlier_threshold
         final_points = points_filtered[inlier_mask]
@@ -138,14 +147,35 @@ def detect_stick(image, mask):
             print("Not enough inlier points after line fitting.")
             return result_img, None, None
 
-        # Use the fitted line direction for projection.
-        line_dir = np.array([vx, vy])
-        # Project final points onto the line.
-        projections = final_points.dot(line_dir)
-        min_idx = np.argmin(projections)
-        max_idx = np.argmax(projections)
-        start_point = tuple(final_points[min_idx].astype(int))
-        end_point = tuple(final_points[max_idx].astype(int))
+        # --- Debug: Visualize inlier points and the fitted line ---
+        debug_img = result_img.copy()
+        for pt in final_points:
+            cv2.circle(debug_img, (int(pt[0]), int(pt[1])), 4, (255, 0, 0), -1)
+        # Extend the fitted line across the image.
+        height, width = result_img.shape[:2]
+        #Determine two far points along the line.
+        extension_length = 50  # extend 50 pixels on each side
+        pt_left = (int(x0 - extension_length * vx), int(y0 - extension_length * vy))
+        pt_right = (int(x0 + extension_length * vx), int(y0 + extension_length * vy))
+        cv2.line(debug_img, pt_left, pt_right, (255, 255, 255), 2)
+
+        #cv2.imshow("Inlier Points and Fitted Line", debug_img)
+        #cv2.waitKey(0)
+        #cv2.destroyAllWindows()
+
+        # Draw a circle around the point (x0, y0) in white
+        #cv2.circle(debug_img, (int(x0), int(y0)), 5, (255, 255, 255), -1)
+        #cv2.imshow("Circle around (x0, y0)", debug_img)
+        #cv2.waitKey(0)
+        #cv2.destroyAllWindows()
+
+
+
+       
+
+        
+        start_point = pt_left
+        end_point = pt_right
 
         # Verify the final stick is long enough.
         if np.linalg.norm(np.array(start_point) - np.array(end_point)) < min_line_length:
@@ -153,6 +183,14 @@ def detect_stick(image, mask):
             return result_img, None, None
 
         cv2.line(result_img, start_point, end_point, (0, 0, 255), thickness=3)
+        
+        # --- Debug: Show final result ---
+        #cv2.imshow("Final Stick", result_img)
+        #cv2.waitKey(0)
+        #cv2.destroyAllWindows()
+
+
+
         return result_img, start_point, end_point
 
     # Convert image to K channel and binarize it.

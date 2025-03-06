@@ -52,12 +52,6 @@ def okay_to_shoot(frame, line, white_ball, balls_info):
             bool: True if the line intersects with any ball, False otherwise.
         """
 
-        # Validate input
-        if line is None or len(line) != 2:
-            return
-        if not balls_info or not isinstance(balls_info, list):
-            raise ValueError("balls_info must be a list of (x, y, r) tuples.")
-
         # Extract the start and end points of the line
         (x1, y1), (x2, y2) = line
 

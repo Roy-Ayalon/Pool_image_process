@@ -21,7 +21,7 @@ previous_white_ball_center = None
 
 balls_info = None
 
-black_missimg_counter = 0
+black_missing_counter = 0
 score_counter = 0
 win_counter = 0
 
@@ -33,7 +33,7 @@ stable_frame_count = 0
 turn_mode_cooldown = 0  # frames to wait before allowing next turn
 
 def main():
-    global remaining_balls, points, previous_white_ball_center, balls_info, black_missimg_counter, score_counter, win_counter, displayed_score, candidate_score, stable_frame_count, turn_mode_cooldown # Declare globals
+    global remaining_balls, points, previous_white_ball_center, balls_info, black_missing_counter, score_counter, win_counter, displayed_score, candidate_score, stable_frame_count, turn_mode_cooldown # Declare globals
 
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
@@ -134,7 +134,7 @@ def main():
                 # --- Stick Detection Code ---
                 res_img, start_point, end_point = detect_stick(frame, binary_mask)
                 if start_point is not None and end_point is not None:
-                    cv2.line(display_frame, start_point, end_point, (255, 0, 0), 3)
+                    cv2.line(display_frame, start_point, end_point, (0, 255, 0), 3)
 
                     # --- physics ---
                     line = (start_point, end_point)
@@ -221,7 +221,7 @@ def main():
                 black_missing_counter = 0
 
             # Once we've missed the black ball for more than threshold frames, trigger game over.
-            if black_missing_counter > 7:
+            if black_missing_counter > 70:
                 h, w = display_frame.shape[:2]
                 cv2.putText(display_frame, "YOU LOSE", (w//2 - 150, h//2), 
                             cv2.FONT_HERSHEY_SIMPLEX, 2.0, (255, 0, 0), 4)
@@ -278,7 +278,7 @@ def main():
             else:        
                 res_img, start_point, end_point = detect_stick(frame, binary_mask)
                 if start_point is not None and end_point is not None:
-                    cv2.line(display_frame, start_point, end_point, (255, 0, 0), 3)
+                    cv2.line(display_frame, start_point, end_point, (255, 0, 255), 3)
 
                     line = (start_point, end_point)
                     if white_ball is not None:
@@ -442,6 +442,8 @@ def main():
 
                                     current_point = next_point
                                     total_length += step
+
+                                trajectory_end = current_point  # Stop at the board
 
                                 # Draw the white ball's trajectory (Yellow)
                                 cv2.line(display_frame,
