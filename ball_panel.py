@@ -6,10 +6,10 @@ COLOR_RANGES = {
     "yellow":   ((16,  147,  224),  (36, 167, 244)),  # new
     "brown":    ((0,   157,  150),  (40, 170, 175)),  # new
     "blue":     ((80,  130,  160),  (115, 220, 210)), # new
-    "red":      ((115,   125,  210),  (179, 230, 255)),  # new
+    "red":      ((0,   255,  255),  (0,   255,  255)),  # new
     "orange":   ((0,  160,  230),  (40, 210, 270)),  # NOT GOOD
     "green":    ((60,  130,  130),  (110, 230, 200)),  # new
- #   "purple":   ((90, 70,  100),  (150, 170, 180)), # new
+    "purple":   ((90, 70,  100),  (150, 170, 180)), # new
     "white":    ((60,   0,    230),  (100, 20, 255)),  # hue ~0-180, sat ~0-50, val ~200-255
     "black":    ((30,   120,    0),    (85, 190, 50))    # new
 }
@@ -41,64 +41,85 @@ for color, (lower, upper) in COLOR_RANGES.items():
 
 def create_balls_panel(balls_info, frame_width, panel_height=100):
     """
-    Creates a panel image showing ball icons by color (ignoring ball numbers).
-    - Up to 2 balls for each of the 7 main colors
-    - Up to 1 black ball
-    - White ball is omitted entirely.
-    - Maximum 15 total.
-
+    Creates a panel image showing ball icons by color in fixed positions.
+    
+    Fixed layout:
+      - For each of the 7 colors (yellow, blue, red, purple, orange, green, brown),
+        two slots are reserved.
+      - For black, one slot is reserved.
+      - White is omitted entirely.
+    
+    For each color:
+      - If there are 0 balls, nothing is drawn in the reserved slot positions.
+      - If there is 1 ball, only the left slot is filled.
+      - If there are 2 balls, both slots are filled.
+    
     Parameters:
-        balls_info (list): Each element is (x, y, r, label, number).
-        frame_width (int): Width of the main frame so the panel matches.
+        balls_info (list): Each element is a tuple (x, y, r, label, number).
+        frame_width (int): Width of the panel (matches main frame width).
         panel_height (int): Height of the panel.
-
+    
     Returns:
-        panel (ndarray): An image with drawn ball icons.
+        panel (ndarray): An image with the drawn ball icons.
     """
-    # Create a blank panel (black background)
+    # Create a blank (white) panel.
     panel = 255 * np.ones((panel_height, frame_width, 3), dtype=np.uint8)
     
-    # Define which colors we want to allow and how many of each
-    valid_colors = ["yellow", "blue", "red", "purple", "orange", "green", "brown", "black"]
-    max_counts = {
-        "yellow": 2, "blue": 2, "red": 2, "purple": 2,
-        "orange": 2, "green": 2, "brown": 2, "black": 1
-    }
-    color_count = {c: 0 for c in valid_colors}
-
-    # Filter and limit to the desired colors/quantities
-    selected_balls = []
-    for x, y, r, label, number in balls_info:
-        color_label = label.lower()
-        # Skip white or any color not in our valid list
-        if color_label not in valid_colors:
-            continue
-        # Skip if we already have the max for that color
-        if color_count[color_label] < max_counts[color_label]:
-            selected_balls.append((x, y, r, color_label))
-            color_count[color_label] += 1
-
-    # Now draw these selected balls on the panel
-    num_balls = len(selected_balls)
-    spacing = frame_width / (num_balls + 1) if num_balls > 0 else frame_width
-
+    # Define the layout order and the number of slots per color.
+    # Colors are listed in the desired order.
+    layout_order = [
+        ("yellow", 2),
+        ("blue", 2),
+        ("red", 2),
+        ("green", 2),
+        ("brown", 2),
+        ("black", 1)
+    ]
+    total_slots = sum(slots for _, slots in layout_order)  # should be 15
+    
+    # Count how many balls we have for each color (ignoring white and any other color).
+    ball_counts = {color: 0 for color, _ in layout_order}
+    for (_, _, _, label, _) in balls_info:
+        color = label.lower()
+        if color in ball_counts:
+            ball_counts[color] += 1
+    
+    # Compute positions for each slot across the width.
+    spacing = frame_width / (total_slots + 1)
     ball_radius = 20
-    for i, (x, y, r, color_label) in enumerate(selected_balls):
-        center_x = int(spacing * (i + 1))
-        center_y = panel_height // 2
 
-        # Get the BGR color, default to gray if unknown
-        color = ball_color_mapping.get(color_label.lower(), (128, 128, 128))
+    # Set up font parameters (smaller so the text fits inside the circle).
+    font_face = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.5
+    font_thickness = 1
 
-        # Draw filled circle with the ball's color
-        cv2.circle(panel, (center_x, center_y), ball_radius, color, -1)
+    # Global slot counter to compute x positions.
+    slot_counter = 0
 
-        # Optionally label with the color name (ignoring the number)
-        text = color_label.capitalize()
-        text_size, _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
-        text_x = center_x - text_size[0] // 2
-        text_y = center_y + text_size[1] // 2 + 25
-        cv2.putText(panel, text, (text_x, text_y),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
+    # Iterate through each color in the layout order.
+    for color, slots in layout_order:
+        # For each slot reserved for this color:
+        for slot_index in range(slots):
+            # Compute the center position for this slot.
+            center_x = int(spacing * (slot_counter + 1))
+            center_y = panel_height // 2
+            slot_counter += 1
+
+            # Determine if a ball should be drawn in this slot.
+            # If one ball is available, fill only the left slot (slot_index 0).
+            # If two balls are available, fill both slots.
+            count = ball_counts[color]
+            if count > slot_index:
+                # Draw a filled circle for the ball.
+                bgr_color = ball_color_mapping.get(color, (128, 128, 128))
+                cv2.circle(panel, (center_x, center_y), ball_radius, bgr_color, -1)
+
+                # Draw the color label inside the ball.
+                text = color.capitalize()
+                text_size, _ = cv2.getTextSize(text, font_face, font_scale, font_thickness)
+                text_x = center_x - text_size[0] // 2
+                text_y = center_y + text_size[1] // 2 + 25
+                cv2.putText(panel, text, (text_x, text_y), font_face, font_scale, (0, 0, 0), font_thickness)
+            # Else: leave the slot blank (so the reserved position remains, but no ball is drawn).
 
     return panel
