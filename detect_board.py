@@ -47,6 +47,10 @@ def detect_board(frame, debug=False):
     # Create a black image to draw the detected board
     black_image = np.zeros_like(frame)
     cv2.drawContours(black_image, [largest_contour], -1, (0, 255, 0), 2)
+    if debug:
+        plt.show()
+        cv2.imshow("Binary Mask with contours", black_image)
+        cv2.waitKey(0)
 
     def rgb_to_cmyk(image):
         """

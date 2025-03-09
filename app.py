@@ -8,7 +8,21 @@ from detect_stick import detect_stick
 from trajectory import okay_to_shoot, compute_trajectory, extend_line, find_first_intersecting_ball, compute_next_trajectory, check_hole_intersection, check_board_edge_intersection
 import matplotlib.pyplot as plt
 from ball_panel import create_balls_panel
-from is_moving import check_white_ball_movement  # Updated function signature
+from is_moving import check_white_ball_movement
+
+import pygame
+pygame.init()
+pygame.mixer.init()
+import threading
+
+win_sound = pygame.mixer.Sound("success-fanfare-trumpets-6185.mp3")
+lose_sound = pygame.mixer.Sound("you-loseheavy-echoed-voice-230555.mp3")
+score_sound = pygame.mixer.Sound("applause-2-31567.mp3")
+
+# Load your turn mode sound.
+turn_mode_sound = pygame.mixer.Sound("Mission-Impossible (1).mp3")
+# This variable will hold the channel where the sound is played.
+turn_sound_channel = None
 
 # Global persistent dictionary for remaining balls.
 remaining_balls = {}
@@ -33,7 +47,7 @@ stable_frame_count = 0
 turn_mode_cooldown = 0  # frames to wait before allowing next turn
 
 def main():
-    global remaining_balls, points, previous_white_ball_center, balls_info, black_missing_counter, score_counter, win_counter, displayed_score, candidate_score, stable_frame_count, turn_mode_cooldown # Declare globals
+    global remaining_balls, points, previous_white_ball_center, balls_info, black_missing_counter, score_counter, win_counter, displayed_score, candidate_score, stable_frame_count, turn_mode_cooldown, turn_sound_channel # Declare globals
 
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
@@ -179,7 +193,10 @@ def main():
                         candidate_score = new_score
                         stable_frame_count = 1
 
-                    if stable_frame_count > 4:
+                    if stable_frame_count > 7:
+                        if displayed_score is not None and candidate_score == displayed_score + 1:
+                            channel = score_sound.play()
+                            channel.fadeout(4000)  # Fade out over 2000 milliseconds (2 seconds)
                         displayed_score = candidate_score
                 else:
                     # New score matches the currently displayed score.
@@ -199,6 +216,7 @@ def main():
                 win_counter = 0
 
             if win_counter > 7:
+                win_sound.play()
                 h, w = display_frame.shape[:2]
                 cv2.putText(display_frame, "YOU WON", (w//2 - 150, h//2), 
                             cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 255, 0), 4)
@@ -221,7 +239,8 @@ def main():
                 black_missing_counter = 0
 
             # Once we've missed the black ball for more than threshold frames, trigger game over.
-            if black_missing_counter > 70:
+            if black_missing_counter > 7:
+                lose_sound.play()
                 h, w = display_frame.shape[:2]
                 cv2.putText(display_frame, "YOU LOSE", (w//2 - 150, h//2), 
                             cv2.FONT_HERSHEY_SIMPLEX, 2.0, (255, 0, 0), 4)
@@ -249,6 +268,9 @@ def main():
             text_x = (display_frame.shape[1] - text_width) // 2
             cv2.putText(display_frame, text, (text_x, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
+            if turn_sound_channel is None or not turn_sound_channel.get_busy():
+                turn_sound_channel = turn_mode_sound.play(loops=-1)
+
             if board_contour is not None:
                 cv2.drawContours(display_frame, [board_contour], -1, (0, 0, 255), 2)
 
@@ -271,6 +293,10 @@ def main():
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
                     
             if white_ball_moving:
+                # Stop the turn mode sound before switching back to game mode.
+                if turn_sound_channel is not None:
+                    turn_sound_channel.stop()
+                    turn_sound_channel = None
                 turn_mode_cooldown = 20
                 mode = 'game'
                 continue
@@ -278,7 +304,7 @@ def main():
             else:        
                 res_img, start_point, end_point = detect_stick(frame, binary_mask)
                 if start_point is not None and end_point is not None:
-                    cv2.line(display_frame, start_point, end_point, (255, 0, 255), 3)
+                    #cv2.line(display_frame, start_point, end_point, (255, 0, 255), 3)
 
                     line = (start_point, end_point)
                     if white_ball is not None:
@@ -443,7 +469,7 @@ def main():
                                     current_point = next_point
                                     total_length += step
 
-                                trajectory_end = current_point  # Stop at the board
+                                trajectory_end = current_point  # Stop at the board/
 
                                 # Draw the white ball's trajectory (Yellow)
                                 cv2.line(display_frame,
